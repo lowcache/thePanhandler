@@ -99,9 +99,9 @@ on the card is the whole defense.
 **Powered-on tamper (the 24/7-in-room case) — active response:**
 - **Dead-man's switch:** a service expects a heartbeat from the phone over the
   tailnet every N min; miss the window (+ grace) → **`cryptsetup luksErase` / destroy
-  key slots → `poweroff`** (crypto-erase is instant; never overwrite flash).
+  key slots → lost mode** (crypto-erase is instant; never overwrite flash).
 - **Optional enclosure intrusion switch:** microswitch/reed on the lid → GPIO →
-  same crypto-erase + poweroff. (Destroys data only; not a physical trap.)
+  same crypto-erase → lost mode. (Destroys data only; not a physical trap.)
 - Re-arm / false-positive handling: grace period + phone re-auth; cheap because the
   box is empty.
 
@@ -116,3 +116,61 @@ but non-blip-resilient alternative, not chosen.
 
 `[CEILING]` Does NOT defend a powered-on seizure + immediate cold-boot RAM dump
 (A6/nation-state, out of scope). Against ordinary theft, tamper-wipe wins.
+
+## Lost mode — recovery beacon (added 2026-10-17)
+
+Theft's worst cost is not knowing. After the crypto-erase, the device stops
+being a vault and becomes a beacon, our own "Find My", for our own property.
+
+**Triggers:** tamper-response (dead-man miss / enclosure switch), a manual
+"lost" command from the phone, or a boot with no phone heartbeat on a network
+it has never seen.
+
+**Runs from:** the unencrypted base system (the Nix store and tmpfs root). It
+needs no unlock, so it still works after the key is erased and with the
+phone-custodied key (option 3). Its only credential is a beacon token that can
+reach nothing else, so it's low-value if extracted.
+
+**Beacon payload** (small, jittered, ordinary-looking HTTPS):
+- timestamp, uptime, boot count since the trigger;
+- connected SSID/BSSID, gateway MAC + vendor, DHCP-assigned domain, captive-portal
+  page title (place names leak through all of these);
+- **nearby BSSIDs + signal strength** from managed-mode scans, for Wi-Fi
+  geolocation;
+- optional: a GPS fix (USB GPS dongle) and a camera still (CSI camera). Both are
+  off by default; see the legal note.
+
+**Channels, redundantly:** an ntfy topic (secret topic + access token), a POST to
+an endpoint you control (it records the public source IP → ISP + coarse
+geo-IP), and Tailscale presence. The admin console shows last-seen and endpoint
+IPs for free, as long as the node isn't revoked (see trade-off below).
+
+**Location is resolved off-device** (laptop or phone). It turns BSSIDs into a
+position with a Wi-Fi geolocation service and IPs into geo-IP, so no API keys
+ever sit on the Pi (empty-box doctrine). Mozilla Location Service was retired
+in 2024. BeaconDB is the open successor but still maturing; Google's
+Geolocation API is accurate but paid. `[VERIFY]` coverage near home before
+relying on it.
+
+**Stealth:** no LED change, no visible behaviour change, nothing that tells the
+thief it's reporting.
+
+**Trade-off: revoke vs. watch.** The A0 plan revokes the tailnet node "in
+seconds". Revoking kills the Tailscale signal. Because the node is tagged with a
+minimal ACL, a stolen identity can reach almost nothing, so the default on theft
+is **watch first, revoke after** (your call, per incident).
+
+**Honest limits `[CEILING]`:**
+- It only works if the thief powers it on **and** it can reach the internet: a
+  known network, Ethernet into their router, or an open hotspot without a
+  portal. Upgrade path: a USB LTE modem + IoT SIM is the only guaranteed uplink.
+- **Reflashing the SD card erases it.** The Pi 3 has no persistent firmware we
+  can hide in. Phones' Find My survives because activation lock lives in
+  hardware. Here we get the window between theft and reflash.
+- No GPS without a dongle, and GPS barely works indoors. Wi-Fi geolocation is
+  the realistic primary.
+
+**Legal note:** tracking your own stolen device is broadly fine. Photos of the
+person holding it and recording other people's traffic vary by jurisdiction. The
+camera stays opt-in, there's no audio ever, and network data stays passive
+(what the device naturally sees). Give the findings to police; don't confront.

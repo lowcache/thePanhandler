@@ -5,7 +5,7 @@
 > line in this file is scope creep.
 
 **Status:** draft for review. This document gates the feature list, not the other
-way around. Last updated 2026-10-16.
+way around. Last updated 2026-10-17.
 
 ## 1. What we're protecting (assets)
 
@@ -32,8 +32,12 @@ way around. Last updated 2026-10-16.
      on the laptop (escalation pattern); sensor data streams off-box; tmpfs root +
      volatile logs. Theft yields config + a key that unlocks nothing of value.
   4. **Tamper-response** → dead-man heartbeat from the phone + optional enclosure
-     intrusion switch → crypto-erase the LUKS key + poweroff. Covers the
-     powered-*on* grab (within the ceiling below). See HARDENING.
+     intrusion switch → crypto-erase the LUKS key → **lost mode** (not poweroff).
+     Covers the powered-*on* grab (within the ceiling below). See HARDENING.
+  5. **Lost mode: recovery beacon** → once the data is gone, the device keeps
+     running from the unencrypted base system and reports where it is and what
+     it sees to an endpoint you control. The data is protected first; the
+     device then works for you. See HARDENING §Lost mode.
 - **Residual (honest) `[CEILING]`:** a powered-*on* seizure followed by an immediate
   cold-boot RAM dump could recover the live key (A6/nation-state, out of scope).
   Against ordinary theft the tamper-wipe fires first.
@@ -56,7 +60,7 @@ way around. Last updated 2026-10-16.
 ### A4 — Active LAN attacker / rogue AP (secondary)
 - **Capability:** ARP/DNS spoofing, evil-twin AP, MITM attempts.
 - **Wants:** intercept/redirect.
-- **Defense:** tunnel + pinned encrypted DNS defeats most MITM value; auditor flags evil-twin/TLS-intercept signatures. We **detect and avoid**, we do not fight back.
+- **Defense:** tunnel + pinned encrypted DNS defeats most MITM value; auditor flags evil-twin/TLS-intercept signatures. We **detect and avoid**, we do not fight back — see §2.5 for the response.
 
 ### A5 — The compromised Panhandler (the inverted risk — HIGH)
 - **Capability:** if popped, it is a perfect surveillance chokepoint — it already sees all your plaintext.
@@ -67,6 +71,78 @@ way around. Last updated 2026-10-16.
 - We do **not** claim to defend against an adversary specifically targeting *you*
   with implants, 0-days, or legal compulsion of Tailscale/your exit. Saying so
   honestly is part of the model.
+
+## 2.5 Response doctrine — record, alert, vanish as a target (added 2026-10-17)
+
+When the Panhandler detects an attack (A2 hijack/injection, A4 spoofing/rogue AP,
+or inbound probing of the Pi itself), it **absorbs it, documents it, and stays
+online with nothing to attack**. It never touches the attacker's systems.
+"Vanish" means vanishing *as a viable target*, not dropping off the network: the
+attacker still sees a live host, but every attempt yields nothing. The first
+attack that seemed to land turns out to have been our information grab.
+Goals: evidence ("information is power") and denial.
+
+1. **Record (passive only).** Everything is taken from traffic that reached us or
+   was broadcast to the segment. Nothing is probed or scanned:
+   - attacker MAC + OUI vendor, IP(s), and any hostnames they announce themselves
+     (DHCP option 12, mDNS/LLMNR/NetBIOS they emit);
+   - passive OS fingerprint (TTL / TCP window / options, p0f-style) of packets
+     they sent us;
+   - the offending packets: an in-RAM pcap ring buffer, snapshotted on trigger;
+   - network context: SSID, BSSID, channel, gateway MAC/IP, what was targeted, and
+     NTP-synced timestamps.
+2. **Preserve.** Records are hash-chained and **shipped off-device over the tailnet
+   immediately** (the Pi may be stolen next, and its logs are volatile).
+   Evidence that only lives on the Pi doesn't count.
+3. **Alert.** Push a notification to the phone with the summary and the record ID
+   (alert channel: open decision, BLUEPRINT §9).
+4. **Lock down (stay live, present nothing).** This is the *standing* posture on
+   any hostile network, not a reaction. Detection only tightens it:
+   - inbound on the hostile interface: drop everything, silently. Every port reads
+     "filtered"; no service answers. ICMP echo off on wlan0. ARP and DHCP still
+     happen, so the host is visibly alive, and that visibility is deliberate.
+   - egress: tunnel-only (Tailscale/Tor) behind the kill-switch. A MITM that
+     "works" (ARP spoof, DNS hijack) captures only encrypted transport. Our DNS
+     never uses theirs.
+   - identity: randomized MAC, cover hostname, and no OS-revealing DHCP options
+     (option 12 hostname, option 60 vendor class). No mDNS/LLMNR/NetBIOS.
+   - on detection: pin the real gateway's ARP entry (an ongoing spoof stops
+     working), tighten anything else that's loose, log every further attempt.
+     Escalate to disconnect only on a manual call.
+   - optional exit: disconnect, rotate identity, rejoin, as a manual choice.
+
+**Hard boundaries:** no scanning, probing, or fingerprinting the attacker
+*actively*; no counter-intrusion; no deception that touches their systems. Canary
+tokens live only on our own assets. This keeps us on the right side of the CFAA
+and consistent with the stealth pillar.
+
+**Design risks this must answer:**
+- **Induced reaction.** Lockdown is the default, so detection changes little, and
+  an attacker can't trigger a self-inflicted outage. Keep it that way: any
+  automatic reaction must never cost us connectivity (no auto-disconnect).
+- **Unavoidable visibility.** On a shared L2 segment we can't hide that a host
+  exists (ARP/DHCP), or that it speaks WireGuard/Tor (traffic shape, DERP
+  endpoints). "No vector" is the goal; "no presence" isn't achievable.
+- **Below the firewall.** The Wi-Fi chip's firmware and the kernel's packet
+  handling process frames before any firewall rule runs. Broadcom Wi-Fi firmware
+  has had remotely exploitable bugs before (e.g. Broadpwn, 2017). We minimize
+  this with updates; we can't eliminate it.
+- **The attacker learns they were recorded only through our legitimate actions:**
+  visible adaptation (their spoof stops working) and reports with evidence to the
+  network operator or abuse contacts. We never contact or message them directly.
+- **False positives.** Pre-auth captive portals hijack DNS *by design*, and hotel
+  gear does odd ARP. The `portal-auth` state must expect these, not flag them.
+- **Hostile-input parsing (A5).** The capture/fingerprint path parses
+  attacker-crafted packets, which is classic exploit surface. Sandbox it like the
+  sensors: least privilege, no network, memory-safe parsers where possible.
+- **Radio ceiling.** [CEILING]: the onboard brcmfmac has no monitor mode on stock
+  firmware, so deauth floods and evil twins are seen only through managed-mode
+  scans (BSSID/beacon changes). Upgrade path: the v2 USB dongle with monitor mode.
+- **Deterrence is a design aim, not a measurable property.** Scans are automated,
+  but a human reviews the results. A target that absorbed an attack, then
+  visibly adapted and offered nothing, signals capability. The effect on a given
+  attacker can't be measured [UNVERIFIED]. Denial of the target is the guaranteed
+  part.
 
 ## 3. Explicitly out of scope
 
