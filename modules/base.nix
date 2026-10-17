@@ -9,6 +9,12 @@
   # Mainline over nixos-hardware's mkDefault vendor kernel: mainline is in
   # cache.nixos.org, linux-rpi compiles for hours under binfmt on every bump.
   boot.kernelPackages = pkgs.linuxPackages;
+  # nixos-hardware mkForces the SD firmware partition and skips U-Boot unless
+  # asked; without it the GPU firmware finds no kernel (7 ACT blinks).
+  hardware.raspberry-pi.firmware.uboot.enable = true;
+  # uboot.enable defaults this off (keep firmware-overlaid vendor DTB); the
+  # mainline kernel wants its own DTBs via extlinux FDTDIR, as stock sd-image-aarch64.
+  boot.loader.generic-extlinux-compatible.useGenerationDeviceTree = true;
 
   networking.hostName = "panhandler";
   time.timeZone = lib.mkDefault "UTC";
@@ -49,6 +55,8 @@
 
   # Default-deny inbound. SSH reachable ONLY over the tailnet and the
   # break-glass Ethernet cable — never on the hostile Wi-Fi uplink (wlan0).
+  # Classic names: the USB-attached NIC otherwise isn't "eth0" and the rule misses.
+  networking.usePredictableInterfaceNames = false;
   networking.firewall = {
     enable = true;
     interfaces."tailscale0".allowedTCPPorts = [ 22 ];
