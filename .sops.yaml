@@ -1,0 +1,11 @@
+# sops-nix recipients for The Panhandler. Public keys only — safe to commit.
+# The matching PRIVATE age key lives on the laptop (~/.config/sops/age/keys.txt)
+# and is placed out-of-band on the device at /var/lib/sops-nix/key.txt (phase-1;
+# moves to /persist once the LUKS/impermanence layer lands). Never commit it.
+keys:
+  - &panhandler age1hd3e46hysenu2ggnfshq5sungy7v2zjzg60w0s0y3fz7pyz9fcvqapzrw0
+creation_rules:
+  - path_regex: secrets/secrets\.yaml$
+    key_groups:
+      - age:
+          - *panhandler

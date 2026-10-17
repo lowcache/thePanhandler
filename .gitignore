@@ -1,0 +1,5 @@
+# private age keys / identities — NEVER commit (encrypted secrets/*.yaml is fine)
+*age*key*.txt
+keys.txt
+result
+result-*
