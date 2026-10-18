@@ -38,6 +38,14 @@ way around. Last updated 2026-10-17.
      running from the unencrypted base system and reports where it is and what
      it sees to an endpoint you control. The data is protected first; the
      device then works for you. See HARDENING §Lost mode.
+- **Persistence / evil maid (added 2026-10-17):** the firmware, kernel, store and `/base`
+  are unencrypted and the Pi 3B has no secure boot, so whoever holds the card can plant
+  code that captures the key at the next unlock. `[CEILING]` Undefendable
+  cryptographically here: detection, not prevention. Every card pull cuts power, so the
+  Panhandler counts boots: ≥3 consecutive short boots on the Pi (clock-free; the Pi has no
+  RTC) or ≥3 check-ins in 60 min in the phone's boot log → **LOCKDOWN** (cable-only
+  unlock). A single unplug is normal. A careful single-pull attack looks like an unplug,
+  an accepted risk given room access control; `verify-card` checks the card offline.
 - **Residual (honest) `[CEILING]`:** a powered-*on* seizure followed by an immediate
   cold-boot RAM dump could recover the live key (A6/nation-state, out of scope).
   Against ordinary theft the tamper-wipe fires first.

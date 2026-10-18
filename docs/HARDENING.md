@@ -31,7 +31,7 @@
 - **Kill the throwaway password** (`0x29a`) — it does not exist on the NixOS image.
 
 ### Tailscale blast-radius
-- Node is **ephemeral + tagged** (`tag:panhandler`) with **tight ACLs** so that if
+- Node is **tagged** (`tag:panhandler`, non-ephemeral since 2026-10-17) with **tight ACLs** so that if
   it's popped it can reach *nothing* else on the tailnet (it's the most-exposed
   node; give it the least tailnet reach).
 - Pre-auth key via `authKeyFile` (sops), short-lived / single-use.
@@ -71,11 +71,17 @@ element), so this is defense-in-depth, not one clean mechanism.
 1. **LUKS-encrypted persistent storage** (`boot.initrd.luks.devices`) → powered-off
    stolen Pi is an encrypted brick. Pairs well with tmpfs root: only `/persist`
    (and the Nix store = config, no secrets) need protecting.
-2. **Unlock = over the break-glass cable** (`boot.initrd.network` on eth0 +
-   `boot.initrd.network.ssh`, unlock via SSH over link-local). Ethernet-in-initrd is
-   tractable; **Wi-Fi-in-initrd on brcmfmac is not — avoid it.**
-3. **Ephemeral + `tag:panhandler` + minimal-ACL Tailscale**, revocable from the
-   phone in seconds → stolen identity is low-value and killable.
+2. **Unlock in stage 2, three independent keyslots** (superseded 2026-10-17; see
+   `docs/superpowers/specs/2026-10-17-storage-spine-design.md`). The unencrypted base
+   system boots fully, and `/persist` is unlocked afterwards by a key pushed over SSH to a
+   forced command: slot 0 = laptop share ⊕ phone share (phone-tap consent), slot 1 =
+   passphrase (memory/paper), slot 2 = Bitwarden. No initrd networking at all.
+   *Origin of the earlier cable-vs-Wi-Fi conflict:* phone-hotspot data got rate-limited,
+   which cast doubt on the Wi-Fi path and brought in the cable.
+3. **Tagged, minimal-ACL Tailscale**, revocable from the phone in seconds. Non-ephemeral
+   (superseded 2026-10-17): an ephemeral node is deleted while locked and would need a
+   reusable key on the device. A second, zero-reach `tag:panhandler-locked` identity in
+   `/base` keeps the box reachable while locked.
 4. **Minimize on-device secrets/data:** API keys live on the laptop (escalation
    brain), not the Pi; sensor data streams off-box; volatile journald.
 
@@ -106,7 +112,8 @@ on the card is the whole defense.
   box is empty.
 
 **Key-custody decision (the real Pi-3B triangle — no hardware root of trust):**
-DECIDED 2026-10-16 = **build-time spike on (3), fall back to (2).** Attempt
+SUPERSEDED 2026-10-17 by the stage-2 three-slot design (v1 posture item 2 above).
+Historical record of the 2026-10-16 decision: **build-time spike on (3), fall back to (2).** Attempt
 **(3) phone-custodied key over the tailnet** (key never on the card — the
 theft-primary-purist answer, still 24/7) via Wi-Fi+Tailscale in initrd; if that
 proves too fragile on brcmfmac `[VERIFY]`, fall back to **(2) key on device +

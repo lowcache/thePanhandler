@@ -1,22 +1,21 @@
-{ config, ... }:
+{ config, lib, ... }:
 {
   sops = {
     defaultSopsFile = ../secrets/secrets.yaml;
 
-    # Decrypt with the dedicated Panhandler age key, NOT a host-ssh-derived one
-    # (the host key doesn't exist until first boot — chicken/egg at enrollment).
-    # Placed out-of-band after flashing (phase-1); moves to /persist with LUKS.
+    # Dedicated Panhandler age key, inside LUKS: secrets exist only after unlock.
     age.sshKeyPaths = [ ];
-    age.keyFile = "/var/lib/sops-nix/key.txt";
+    age.keyFile = "/persist/sops-nix/key.txt";
+    # A systemd unit, so installation can wait for ph-persist.target (see unlock.nix).
+    useSystemdActivation = true;
 
-    secrets = {
-      tailscale_authkey = { };
-      wifi_enroll_psk = { };
-    };
-
-    # wpa_supplicant reads ext:psk_enroll from this rendered file (never the store).
-    templates."wireless.env".content = ''
-      psk_enroll=${config.sops.placeholder.wifi_enroll_psk}
-    '';
+    # wifi_enroll_psk stays in secrets.yaml as the source of truth; ph-provision copies it
+    # to /base because Wi-Fi must work while locked.
+    secrets.tailscale_authkey = { };
   };
+
+  panhandler.spine.mainAuthKeyFile = config.sops.secrets.tailscale_authkey.path;
+  # Upstream wants this at sysinit, where RequiresMountsFor on the key would stall every
+  # locked boot waiting for /dev/mapper/persist. Install secrets on unlock instead.
+  systemd.services.sops-install-secrets.wantedBy = lib.mkForce [ "ph-persist.target" ];
 }

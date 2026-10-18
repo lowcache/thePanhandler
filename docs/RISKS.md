@@ -82,8 +82,8 @@ in an enclosure (seen 85 °C).
   node, keep high-value secrets + sensor data off the device; cheap heatsink;
   plan power.
 - **24/7 unattended: RESOLVED possible** via the "empty box" doctrine + tamper-
-  response (dead-man phone heartbeat + optional enclosure switch → crypto-erase +
-  poweroff). Because the box holds nothing of value, a wipe/loss costs a re-flash,
+  response (dead-man phone heartbeat + optional enclosure switch → crypto-erase →
+  lost mode; corrected 2026-10-17 to match HARDENING, which never powers off). Because the box holds nothing of value, a wipe/loss costs a re-flash,
   not data — which is what makes aggressive tamper-wipe safe. See HARDENING.
 - **Kill criterion:** if the "empty box" can't be kept empty (something of real
   value must persist on-device AND it runs unattended in untrusted spaces),

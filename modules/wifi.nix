@@ -1,4 +1,4 @@
-{ config, ... }:
+_:
 let
   # First-enrollment network. CHANGE THIS to your non-captive enroll SSID
   # (home / phone hotspot). NOTE: this attr name is the SSID and lands in the
@@ -10,7 +10,8 @@ in
   # On-board brcmfmac radio (wlan0). wpa_supplicant, not NetworkManager: headless.
   networking.wireless = {
     enable = true;
-    secretsFile = config.sops.templates."wireless.env".path;
+    # Outside LUKS: Wi-Fi must work while locked. Written by ph-provision (psk_enroll=...).
+    secretsFile = "/base/ph/wireless.env";
     networks.${enrollSSID}.pskRaw = "ext:psk_enroll";
   };
 }
