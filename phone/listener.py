@@ -45,7 +45,11 @@ def notify(rec, reason):
     cmd = ["termux-notification", "--id", "panhandler", "--priority", "high", "--title", title, "--content", body]
     if not reason and rec.get("persist") == "locked":
         cmd += ["--action", f"python3 {TAP}"]
-    subprocess.run(cmd, check=False)
+    # Termux:API calls can hang; never let one block the Pi's check-in reply.
+    try:
+        subprocess.run(cmd, check=False, timeout=15)
+    except subprocess.TimeoutExpired:
+        print("termux-notification timed out", file=sys.stderr, flush=True)
 
 
 class H(BaseHTTPRequestHandler):
@@ -117,7 +121,14 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     os.makedirs(HOME, mode=0o700, exist_ok=True)
-    srv = ThreadingHTTPServer((CFG["bind"], CFG.get("port", 8463)), H)
+    # At phone boot Termux:Boot can run before Tailscale has brought up the bind address.
+    while True:
+        try:
+            srv = ThreadingHTTPServer((CFG["bind"], CFG.get("port", 8463)), H)
+            break
+        except OSError as e:
+            print(f"bind {CFG['bind']} failed ({e}); retrying in 10 s", file=sys.stderr, flush=True)
+            time.sleep(10)
     # Loopback for the tap script; the tailnet address for the Pi and laptop.
     threading.Thread(target=ThreadingHTTPServer(("127.0.0.1", CFG.get("port", 8463)), H).serve_forever,
                      daemon=True).start()

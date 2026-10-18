@@ -206,6 +206,8 @@ Dead-man heartbeat logic, beacon payload/channels (3, 4); runtime hardening (2);
 | Keystore: biometric per use | `termux-keystore -u 15`: key usable 15 s after any device unlock | `termux-keystore` help text. `[CEILING]` laptop malware holding the listener allowlist could sign inside that window; the bag thief cannot. Upgrade: a small dedicated Android app with per-use BiometricPrompt |
 | phone share = SHA-256 pad | SHA-512 pad | the share is 64 bytes |
 
+Consent gate, verified on the phone: after a fingerprint unlock the key signs for about 15 s, then refuses (hardware-enforced). Outside the window termux-keystore returns empty output with exit 0. `enroll.py`/`tap.py` poll for the window.
+
 Verified facts: `CONFIG_CRYPTO_ADIANTUM=m` + `NHPOLY1305_NEON=m` in the 6.18.56 aarch64 config; the live Pi's CPU flags `fp asimd evtstrm crc32 cpuid` (no `aes`); `sdImage.expandOnBoot` (default true) and `nixPathRegistrationFile` exist; `SHA256withRSA` is PKCS#1 v1.5 (deterministic).
 
 `[UNVERIFIED]`, settled at first boot of card #2 (card #1 = rollback): systemd-initrd prefixes `/sysroot` onto bind-mount *sources* (`/sd/nix`, `/sd/boot`, `/sd/base`).

@@ -39,7 +39,7 @@
         ];
       };
 
-      # The flashable image: `nix build .#sdImage`.
+      # The flashable image (binfmt on volnix): `nix build .#packages.aarch64-linux.sdImage`.
       packages.aarch64-linux.sdImage = self.nixosConfigurations.panhandler.config.system.build.sdImage;
 
       # Laptop-side tools (run on volnix).
