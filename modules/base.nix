@@ -75,5 +75,6 @@
 
   # Keep the closure lean for a 1 GB board.
   documentation.enable = lib.mkDefault false;
-  environment.systemPackages = [ ];
+  # iw: on-device wifi diagnosis/regdomain for a roaming router (reg get/set, scan).
+  environment.systemPackages = [ pkgs.iw ];
 }

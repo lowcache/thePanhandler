@@ -67,6 +67,13 @@
 Decided 2026-10-16. The Pi 3B has **no hardware root of trust** (no TPM/secure
 element), so this is defense-in-depth, not one clean mechanism.
 
+**Adversary (refined 2026-10-18):** the realistic thief is **opportunistic and
+device-ignorant** — a crime of opportunity, not someone hunting this box or versed in
+it (that targeted case is THREAT-MODEL **A6**, out of scope). This *simplifies* the
+posture: a powered-off brick (LUKS) + empty box + obscurity + instant tailnet revoke is
+the whole physical defense; detection exists only to flip into lost mode, not to
+out-think a pro.
+
 **v1 posture:**
 1. **LUKS-encrypted persistent storage** (`boot.initrd.luks.devices`) → powered-off
    stolen Pi is an encrypted brick. Pairs well with tmpfs root: only `/persist`
@@ -86,6 +93,13 @@ element), so this is defense-in-depth, not one clean mechanism.
    brain), not the Pi; sensor data streams off-box; volatile journald.
 
 ## Tamper-response & the "empty box" doctrine (enables 24/7 — decided 2026-10-16)
+
+> **STATUS (2026-10-18): the v1 physical response is LOCKDOWN (cable-only unlock) +
+> lost mode, not crypto-erase.** The dead-man / `luksErase` active response below was
+> premised on a *targeted, powered-on* attacker — now THREAT-MODEL A6 (out of scope).
+> For the opportunistic A0, LUKS already bricks the powered-off box, and auto-erase
+> would risk destroying your own data on a benign unplug, so erase is **deferred, not
+> wired**. The analysis below is retained as that deferred option.
 
 The user wants 24/7 unattended operation *and* theft-primary. Resolved via an
 anti-forensic posture, not a cold-boot-only LUKS:

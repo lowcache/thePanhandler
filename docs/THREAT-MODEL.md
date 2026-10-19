@@ -20,35 +20,51 @@ way around. Last updated 2026-10-17.
 
 ## 2. Adversaries (ranked by how much we actually care)
 
+**Two adversaries, two doctrines — and the words differ on purpose.** *Physical*
+(A0) is an opportunist who does not know what they took: detect the box being carried
+off (power-cycling / an unknown network), **seal the disk** (A0 **LOCKDOWN** =
+cable-only unlock) and flip to lost mode; we never fight, the box is an empty,
+unlabeled brick. *Online* (A2–A4, §2.5) is a network attacker on the wire: **absorb
+and document** the attempt, then stand in **vector-lockdown** (§2.5) — a live host
+that presents no vector. A0 LOCKDOWN seals the *disk*; §2.5 vector-lockdown seals the
+*wire*; they are distinct states that happen to share a root word.
+
 ### A0 — Physical theft of the device (PRIMARY — elevated 2026-10-16)
-- **Capability:** takes the physical Pi + SD; reads it offline, extracts secrets and
-  stored data, impersonates the device on the tailnet, or plants persistence.
-- **Wants:** your data, your tailnet identity/access, intel on your setup.
+- **Adversary profile (refined 2026-10-18):** a **crime of opportunity**, not a hunt.
+  Whoever takes it does **not** know what it is — an unlabeled board they must first
+  identify as a Raspberry Pi, then realize something is loaded on it, then get through
+  LUKS. They are not device-versed and are not looking for *this* box. An attacker as
+  versed in the device as the owner, hunting it specifically, is by definition
+  *targeting you* — that is **A6, out of scope**, not A0.
+- **Capability (realistic):** unplugs it to carry it off; maybe idly power-cycles it
+  while the lights blink; at most reflashes or bins it when it does nothing obvious.
+- **Wants:** the hardware's resale value — not your data, which they don't know exists.
 - **Defense (defense-in-depth — Pi 3B has NO hardware root of trust):**
   1. **LUKS at-rest encryption** → a powered-*off* stolen Pi is an encrypted brick.
-  2. **Ephemeral + tagged + minimal-ACL Tailscale node**, instantly revocable from
+  2. **Obscurity** → it doesn't look like anything: no label, no screen, no obvious
+     purpose. The opportunist rarely gets as far as discovering there's a disk to crack.
+  3. **Ephemeral + tagged + minimal-ACL Tailscale node**, instantly revocable from
      your phone → a stolen identity is low-value and killed in seconds.
-  3. **Minimize secrets/data on the device ("empty box")** → high-value creds live
+  4. **Minimize secrets/data on the device ("empty box")** → high-value creds live
      on the laptop (escalation pattern); sensor data streams off-box; tmpfs root +
      volatile logs. Theft yields config + a key that unlocks nothing of value.
-  4. **Tamper-response** → dead-man heartbeat from the phone + optional enclosure
-     intrusion switch → crypto-erase the LUKS key → **lost mode** (not poweroff).
-     Covers the powered-*on* grab (within the ceiling below). See HARDENING.
-  5. **Lost mode: recovery beacon** → once the data is gone, the device keeps
-     running from the unencrypted base system and reports where it is and what
-     it sees to an endpoint you control. The data is protected first; the
-     device then works for you. See HARDENING §Lost mode.
-- **Persistence / evil maid (added 2026-10-17):** the firmware, kernel, store and `/base`
-  are unencrypted and the Pi 3B has no secure boot, so whoever holds the card can plant
-  code that captures the key at the next unlock. `[CEILING]` Undefendable
-  cryptographically here: detection, not prevention. Every card pull cuts power, so the
-  Panhandler counts boots: ≥3 consecutive short boots on the Pi (clock-free; the Pi has no
-  RTC) or ≥3 check-ins in 60 min in the phone's boot log → **LOCKDOWN** (cable-only
-  unlock). A single unplug is normal. A careful single-pull attack looks like an unplug,
-  an accepted risk given room access control; `verify-card` checks the card offline.
-- **Residual (honest) `[CEILING]`:** a powered-*on* seizure followed by an immediate
-  cold-boot RAM dump could recover the live key (A6/nation-state, out of scope).
-  Against ordinary theft the tamper-wipe fires first.
+  5. **Detection → lost mode (not prevention, not erase).** The opportunist unplugs it
+     to carry it, so it powers back on somewhere it has never seen: ≥3 consecutive
+     short boots (clock-free — no RTC) or a boot on an unknown network with no phone
+     heartbeat → **LOCKDOWN** (cable-only unlock), then, once data is safe, **lost
+     mode: recovery beacon** (HARDENING §Lost mode). This flips the box into a beacon
+     after an opportunistic grab; it does not try to out-think a pro. A single unplug
+     (someone moving or cleaning around it) is normal — an explicitly accepted non-event.
+- **Response is LOCKDOWN, not crypto-erase (resolved 2026-10-18 — supersedes the earlier
+  erase design).** For a powered-*off* opportunistic theft, LUKS + empty-box already
+  yield an encrypted, unidentifiable brick, so destroying key slots buys nothing — and
+  auto-erase would destroy *your own* data on a benign unplug. The physical response is
+  therefore cable-only LOCKDOWN + lost mode, matching what the code implements.
+  `[CONTEXT]` The dead-man/`luksErase` active response in HARDENING is retained only as
+  a deferred option against the targeted powered-on case (A6-adjacent), not a v1 control.
+- **Residual (honest) `[CEILING]`:** a powered-*on* seizure + immediate cold-boot RAM
+  dump could recover the live key (A6/nation-state, out of scope). Against an
+  opportunistic theft the box is powered off and the key is not on the card.
 
 ### A1 — Ad-tech / trackers (primary, always-on)
 - **Capability:** DNS/HTTP-level tracking, beacons, fingerprinting.
@@ -79,6 +95,12 @@ way around. Last updated 2026-10-17.
 - We do **not** claim to defend against an adversary specifically targeting *you*
   with implants, 0-days, or legal compulsion of Tailscale/your exit. Saying so
   honestly is part of the model.
+- **Targeted physical / evil-maid (moved here from A0, 2026-10-18):** an attacker who
+  knows the box, hunts *this* device, and pulls the card to plant key-capture code for
+  the next unlock. The Pi 3B has no secure boot and `/base` + store are unencrypted, so
+  this is undefendable cryptographically here. It is by definition *targeting you*, so
+  it lives here, not in A0. Detection, not prevention: boot-counting + an offline
+  `verify-card` check are the only backstops, and we don't claim they stop a pro.
 
 ## 2.5 Response doctrine — record, alert, vanish as a target (added 2026-10-17)
 
@@ -104,8 +126,9 @@ Goals: evidence ("information is power") and denial.
    Evidence that only lives on the Pi doesn't count.
 3. **Alert.** Push a notification to the phone with the summary and the record ID
    (alert channel: open decision, BLUEPRINT §9).
-4. **Lock down (stay live, present nothing).** This is the *standing* posture on
-   any hostile network, not a reaction. Detection only tightens it:
+4. **Vector-lockdown (stay live, present nothing).** This is the *standing* posture on
+   any hostile network, not a reaction; detection only tightens it (A0 **LOCKDOWN**
+   seals the disk, this seals the wire):
    - inbound on the hostile interface: drop everything, silently. Every port reads
      "filtered"; no service answers. ICMP echo off on wlan0. ARP and DHCP still
      happen, so the host is visibly alive, and that visibility is deliberate.

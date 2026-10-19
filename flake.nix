@@ -36,6 +36,7 @@
           ./modules/tailscale.nix
           ./modules/storage.nix
           ./modules/unlock.nix
+          # ./modules/gateway.nix  # held out until the wifi uplink is proven (eth0 flip = lockout risk)
         ];
       };
 

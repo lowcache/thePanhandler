@@ -13,5 +13,9 @@ in
     # Outside LUKS: Wi-Fi must work while locked. Written by ph-provision (psk_enroll=...).
     secretsFile = "/base/ph/wireless.env";
     networks.${enrollSSID}.pskRaw = "ext:psk_enroll";
+    # Without a regdomain cfg80211 stays at world (00) and brcmfmac active scan
+    # fails (scan error -512 / escan_timeout). Set a country so the regulatory
+    # database loads. US = the travel region; change when roaming abroad.
+    extraConfig = "country=US";
   };
 }
