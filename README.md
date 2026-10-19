@@ -1,9 +1,9 @@
 # The Panhandler
 
-A Raspberry Pi 3B that pans for gold and handles the dirt — a privacy-hardened
-roaming gateway and a stealth sensor platform (a scrappy "hobo SOC") for the
-volnix homelab. It flies a cardboard sign on every hostile network while running
-a full SOC reachable only over the tailnet.
+A Raspberry Pi 3B that begs for a public wifi to mine personal data, a captive portal to poison
+dns, or for persoal data/intellectual property to show up on every hostile network while running
+a full SOC reachable only over the tailnet. Operating nixistentially from end to end other than
+where thats an impossibility on the android integration for notifications and authentication.
 
 **Built for:** living on rotating public/hotel Wi-Fi where networks are hostile,
 discovery is off, and captive portals + client isolation break normal reach.
@@ -16,7 +16,7 @@ discovery is off, and captive portals + client isolation break normal reach.
 - Disguise — per-network MAC/hostname randomization, no open ports or mDNS on the
   hostile side; true identity lives on the mesh.
 
-**Built on:** NixOS (aarch64, cross-built from the laptop) + nixos-hardware.
+**Built on:** NixOS (aarch64, cross-built from the laptop) + nixos-hardware + nix modules
 
 See [`docs/BLUEPRINT.md`](docs/BLUEPRINT.md) for the full design, build phases, and
 the hardware assessment.

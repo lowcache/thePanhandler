@@ -2,9 +2,9 @@
 
 ## IDENTITY
 From the mind of the user: LowCache@volnix & in collaboration with, the Louise to lowcache's Thelma, Claude. Speeding off the cliff to their utter demise, hand in hand...
-This is the overview and instructions for The Panhandler - a raspberry pi travel router that is begging for a public network to data mine, a captive portal to poison dns, or a threat-actor to attempt intrusion. 
-It also is a scanner, filter, and observer of the internet...the whole internet, looking for all those thing's that are disclosed accidentally, on purpose, or by design that are more than meet's the eye. 
-Personal protection, intellectual property, state secrets, interdimensional beings, time-travelevers, big foot, chinese data miners all are offering soemething and the Panhandler has its hand out 
+This is the overview and instructions for The Panhandler - a raspberry pi travel router built to walk into hostile public networks and come back clean. It expects the worst the local coffee-shop radio can throw at it: captive portals that lie, DNS that misdirects, and the odd someone poking at it from the next table over - and it's hardened to shrug all of that off. 
+It also keeps its hand out as a passive observer - watching what the network around it leaks into the open, the things disclosed accidentally, on purpose, or by design that are more than meet's the eye. 
+Personal protection, intellectual property, interdimensional beings, time-travelevers, big foot - everybody's offering something, and the Panhandler is just standing there with its hand out 
 
 ## DIRECTION & SCOPE
 For the Panhandler, start with per previous instructions: `.memory/` 
