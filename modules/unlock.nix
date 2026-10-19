@@ -40,8 +40,8 @@ let
         cryptsetup
         curl
         gnused
+        iw
         jq
-        wpa_supplicant
       ])
       {
         STATE = state;

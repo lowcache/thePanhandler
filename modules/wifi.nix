@@ -1,41 +1,84 @@
 { pkgs, ... }:
 let
-  # First-enrollment network. CHANGE THIS to your non-captive enroll SSID
-  # (home / phone hotspot). NOTE: this attr name is the SSID and lands in the
-  # world-readable store + the public repo — use a non-identifying one, or we
-  # move it into sops (rendered wpa_supplicant conf) in a later pass.
-  enrollSSID = "VolatileDevice";
+  # UI-added profiles: inside LUKS, so they exist only after unlock (hotel SSIDs are a location trail).
+  persistProfiles = "/persist/nm/system-connections";
 in
 {
-  # On-board brcmfmac radio (wlan0). wpa_supplicant, not NetworkManager: headless.
-  networking.wireless = {
+  # NetworkManager owns wlan0 at runtime (scan/join/forget from panhandler-webd, no rebuilds).
+  # The module keeps wpa_supplicant as its D-Bus-controlled backend and sets useDHCP = false.
+  networking.networkmanager = {
     enable = true;
-    # Outside LUKS: Wi-Fi must work while locked. Written by ph-provision (psk_enroll=...).
-    secretsFile = "/base/ph/wireless.env";
-    # Phone hotspot: enroll + fallback only (burns cellular), so lowest priority.
-    networks.${enrollSSID} = {
-      pskRaw = "ext:psk_enroll";
-      priority = 5;
+    # eth0 = static downlink (gateway.nix), tailscale0 = mesh: never NM's.
+    unmanaged = [
+      "interface-name:eth0"
+      "interface-name:tailscale0"
+    ];
+    # brcmfmac flaps under power save (4-way handshake timeout, reason=15) → 2 (off).
+    wifi.powersave = false;
+    settings = {
+      keyfile.path = persistProfiles;
+      # Captive-portal detection (Connectivity = portal). Resolved via the uplink's own DNS,
+      # so it works pre-auth; blocky/DoH is for downstream clients only.
+      connectivity = {
+        uri = "http://nmcheck.gnome.org/check_network_status.txt";
+        interval = 300;
+      };
     };
-    # Hotel/public uplink, preferred over the hotspot. Open network (no PSK). A
-    # captive portal, if present, is authorized via portal-proxy over the cable
-    # (RISKS R2). TODO: hotel-specific SSID hardcoded here leaks into the store/
-    # repo like the enroll SSID — parameterize/roam dynamically later.
-    networks."ESAconnect".priority = 10;
-    # Without a regdomain cfg80211 stays at world (00) and brcmfmac active scan
-    # fails (scan error -512 / escan_timeout). Set a country so the regulatory
-    # database loads. US = the travel region; change when roaming abroad.
-    extraConfig = "country=US";
+    # Lifeline uplink while locked: the phone hotspot, rendered into /run from /base at boot.
+    # SSID and PSK are both env-substituted, so neither lands in the store or the repo.
+    ensureProfiles = {
+      environmentFiles = [ "/base/ph/wireless.env" ];
+      profiles.ph-enroll = {
+        connection = {
+          id = "ph-enroll";
+          type = "wifi";
+          # Burns cellular: lowest priority, any UI-added network wins.
+          autoconnect-priority = -10;
+        };
+        wifi = {
+          mode = "infrastructure";
+          ssid = "$ssid_enroll";
+        };
+        wifi-security = {
+          key-mgmt = "wpa-psk";
+          psk = "$psk_enroll";
+        };
+        ipv4.method = "auto";
+      };
+    };
+  };
+  # No modem on this board; the NM module defaults it on.
+  networking.modemmanager.enable = false;
+
+  # Regdomain is a kernel setting NM never touches. Unset = world (00) and brcmfmac
+  # active scan fails (error -512 / escan_timeout). US = travel region; change abroad.
+  boot.extraModprobeConfig = ''options cfg80211 ieee80211_regdom="US"'';
+
+  # Saved profiles live in /persist; tell NM to re-read once it is mounted.
+  systemd.services.ph-nm-persist = {
+    description = "Load persisted NetworkManager profiles after unlock";
+    wantedBy = [ "ph-persist.target" ];
+    after = [
+      "persist.mount"
+      "NetworkManager.service"
+    ];
+    requires = [ "persist.mount" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      install -d -m700 ${persistProfiles}
+      ${pkgs.networkmanager}/bin/nmcli connection reload
+    '';
   };
 
-  # brcmfmac on the Pi 3B flaps the link under power-save (4-way handshake
-  # timeout, reason=15) so DHCP never completes. Disable it once the radio
-  # exists; the setting lives on the netdev and persists across re-associations.
+  # Backstop for wifi.powersave, run when brcmfmac creates the netdev (it appears late at boot).
   systemd.services.wlan0-powersave-off = {
     description = "Disable wlan0 Wi-Fi power save (brcmfmac flap workaround)";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "wpa_supplicant.service" ];
-    wants = [ "wpa_supplicant.service" ];
+    wantedBy = [ "sys-subsystem-net-devices-wlan0.device" ];
+    bindsTo = [ "sys-subsystem-net-devices-wlan0.device" ];
+    after = [ "sys-subsystem-net-devices-wlan0.device" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;

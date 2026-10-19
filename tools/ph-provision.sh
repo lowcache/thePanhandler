@@ -94,7 +94,11 @@ card() {
   echo "== /base"
   $S mount "$p" "$tmp/sd"
   $S install -d -m700 "$tmp/sd/base/ph"
-  printf 'psk_enroll=%s\n' "$(sops -d --extract '["wifi_enroll_psk"]' secrets/secrets.yaml)" >"$tmp/wireless.env"
+  # NetworkManager ph-enroll profile (wifi.nix); NM accepts a passphrase or a 64-hex raw PSK.
+  {
+    printf 'ssid_enroll=%s\n' "$(sops -d --extract '["wifi_enroll_ssid"]' secrets/secrets.yaml)"
+    printf 'psk_enroll=%s\n' "$(sops -d --extract '["wifi_enroll_psk"]' secrets/secrets.yaml)"
+  } >"$tmp/wireless.env"
   $S install -m600 "$tmp/wireless.env" "$tmp/sd/base/ph/wireless.env"
   read -rsp "Single-use tag:panhandler-locked authkey (spent on first boot): " lk
   echo

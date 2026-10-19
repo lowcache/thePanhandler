@@ -37,11 +37,16 @@
           ./modules/storage.nix
           ./modules/unlock.nix
           ./modules/gateway.nix
+          ./modules/webd.nix
+          ./modules/portal.nix
         ];
       };
 
       # The flashable image (binfmt on volnix): `nix build .#packages.aarch64-linux.sdImage`.
-      packages.aarch64-linux.sdImage = self.nixosConfigurations.panhandler.config.system.build.sdImage;
+      packages.aarch64-linux = {
+        sdImage = self.nixosConfigurations.panhandler.config.system.build.sdImage;
+        panhandler-webd = nixpkgs.legacyPackages.aarch64-linux.callPackage ./pkgs/panhandler-webd { };
+      };
 
       # Laptop-side tools (run on volnix).
       packages.x86_64-linux =

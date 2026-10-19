@@ -1,0 +1,356 @@
+:root {
+  /* Colors */
+  --color-bg: #0d1117;
+  --color-surface: #161b22;
+  --color-surface-hover: #1c2128;
+  --color-raised: #21262d;
+  --color-raised-hover: #292e36;
+  --color-border: #30363d;
+  --color-border-subtle: #21262d;
+
+  --color-text-primary: #f0f6fc;
+  --color-text-secondary: #8b949e;
+  --color-text-muted: #6e7681;
+
+  --color-accent: #d4a14a;
+  --color-accent-hover: #e5b35c;
+  --color-accent-subtle: rgba(212, 161, 74, 0.15);
+  --color-accent-border: rgba(212, 161, 74, 0.4);
+
+  /* Status Tokens */
+  --status-full: #3fb950;
+  --status-full-bg: rgba(63, 185, 80, 0.15);
+  --status-full-border: rgba(63, 185, 80, 0.4);
+
+  --status-portal: #d29922;
+  --status-portal-bg: rgba(210, 153, 34, 0.15);
+  --status-portal-border: rgba(210, 153, 34, 0.4);
+
+  --status-limited: #db6d28;
+  --status-limited-bg: rgba(219, 109, 40, 0.15);
+  --status-limited-border: rgba(219, 109, 40, 0.4);
+
+  --status-none: #8b949e;
+  --status-none-bg: rgba(139, 148, 158, 0.15);
+  --status-none-border: rgba(139, 148, 158, 0.3);
+
+  --status-error: #f85149;
+  --status-error-bg: rgba(248, 81, 73, 0.15);
+  --status-error-border: rgba(248, 81, 73, 0.4);
+
+  /* Typography */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --font-size-xs: 0.6875rem; /* 11px */
+  --font-size-sm: 0.8125rem; /* 13px */
+  --font-size-base: 0.875rem; /* 14px */
+  --font-size-md: 1rem;       /* 16px */
+  --font-size-lg: 1.125rem;  /* 18px */
+  --font-size-xl: 1.375rem;  /* 22px */
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+
+  /* Spacing Scale */
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-pill: 9999px;
+
+  /* Layout */
+  --max-width: 1100px;
+}
+
+/* Base Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Accessibility Focus Ring */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Monospace Helpers */
+.font-mono,
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  line-height: 1;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-raised);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.btn:hover:not(:disabled) {
+  background-color: var(--color-raised-hover);
+  border-color: var(--color-text-muted);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #0d1117;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-surface);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+
+.btn-danger {
+  background-color: var(--status-error-bg);
+  border-color: var(--status-error-border);
+  color: var(--status-error);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: var(--status-error);
+  color: #ffffff;
+}
+
+.btn-sm {
+  font-size: var(--font-size-xs);
+  padding: 0.25rem 0.5rem;
+}
+
+/* Badges & Pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.pill-full {
+  color: var(--status-full);
+  background-color: var(--status-full-bg);
+  border-color: var(--status-full-border);
+}
+
+.pill-portal {
+  color: var(--status-portal);
+  background-color: var(--status-portal-bg);
+  border-color: var(--status-portal-border);
+}
+
+.pill-limited {
+  color: var(--status-limited);
+  background-color: var(--status-limited-bg);
+  border-color: var(--status-limited-border);
+}
+
+.pill-none {
+  color: var(--status-none);
+  background-color: var(--status-none-bg);
+  border-color: var(--status-none-border);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  padding: 0.125rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.badge-storage-disk {
+  color: #7ee787;
+  border-color: rgba(126, 231, 135, 0.3);
+}
+
+.badge-storage-memory {
+  color: #d29922;
+  border-color: rgba(210, 153, 34, 0.3);
+}
+
+.badge-storage-base {
+  color: #79c0ff;
+  border-color: rgba(121, 192, 255, 0.3);
+}
+
+/* Card / Surface */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+/* Inputs */
+.input-text {
+  width: 100%;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  padding: var(--space-2) var(--space-3);
+  transition: border-color 0.15s ease;
+}
+
+.input-text:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.input-text:disabled {
+  opacity: 0.6;
+  background-color: var(--color-surface);
+}
+
+/* Dialog */
+dialog {
+  margin: auto;
+  padding: 0;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  max-width: 480px;
+  width: 90vw;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(2px);
+}
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-raised) 25%,
+    var(--color-surface-hover) 50%,
+    var(--color-raised) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Prefers Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .spinner {
+    animation: none;
+    border-top-color: var(--color-accent);
+  }
+}

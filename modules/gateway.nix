@@ -1,4 +1,4 @@
-{ ... }:
+{ config, pkgs, ... }:
 let
   # Downlink = the trusted side the laptop plugs into over the cable.
   # 10.73/24 sits deliberately off the common 192.168.0/1.x hotel ranges.
@@ -8,25 +8,48 @@ let
   prefix = 24;
 in
 {
-  # eth0 is the downlink (static); wlan0 the uplink (DHCP to the phone hotspot).
-  # base.nix sets useDHCP mkDefault true — fine for wlan0; eth0 must not DHCP-client.
-  networking.interfaces.${lan} = {
-    useDHCP = false;
-    ipv4.addresses = [
+  networking = {
+    # eth0 is the static downlink; wlan0 the uplink (NetworkManager, wifi.nix).
+    interfaces.${lan} = {
+      useDHCP = false;
+      ipv4.addresses = [
+        {
+          address = gw;
+          prefixLength = prefix;
+        }
+      ];
+    };
+
+    # Laptop (eth0) egresses through the uplink (wlan0). nat.enable turns on IP
+    # forwarding and masquerade for internalInterfaces → external.
+    nftables.enable = true;
+    nat = {
+      enable = true;
+      externalInterface = wan;
+      internalInterfaces = [ lan ];
+    };
+
+    # blocky fetches its denylist and opens its DoH connections once, at start. A boot with no
+    # uplink leaves it list-less; a network change (or portal login) leaves pooled connections
+    # dead, so every query waits out the 2 s upstream timeout. Restart it each time NM reaches FULL.
+    networkmanager.dispatcherScripts = [
       {
-        address = gw;
-        prefixLength = prefix;
+        source = pkgs.writeShellScript "blocky-on-online" ''
+          if [ "$2" = connectivity-change ] && [ "$CONNECTIVITY_STATE" = FULL ]; then
+            ${config.systemd.package}/bin/systemctl try-restart blocky.service
+          fi
+        '';
       }
     ];
-  };
 
-  # Laptop (eth0) egresses through the phone-hotspot uplink (wlan0). nat.enable
-  # turns on IP forwarding and masquerade for internalInterfaces → external.
-  networking.nftables.enable = true;
-  networking.nat = {
-    enable = true;
-    externalInterface = wan;
-    internalInterfaces = [ lan ];
+    # Open DNS + DHCP on the downlink only; wlan0 stays closed (base.nix default-deny).
+    firewall.interfaces.${lan} = {
+      allowedUDPPorts = [
+        53
+        67
+      ];
+      allowedTCPPorts = [ 53 ];
+    };
   };
 
   # DHCP for the one downstream client. DHCP only (port 0 = no DNS listener here);
@@ -65,14 +88,5 @@ in
         clientGroupsBlock.default = [ "ads" ];
       };
     };
-  };
-
-  # Open DNS + DHCP on the downlink only; wlan0 stays closed (base.nix default-deny).
-  networking.firewall.interfaces.${lan} = {
-    allowedUDPPorts = [
-      53
-      67
-    ];
-    allowedTCPPorts = [ 53 ];
   };
 }

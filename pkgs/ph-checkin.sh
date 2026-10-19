@@ -4,13 +4,14 @@ mkdir -p "$q"
 boot_id=$(cat /proc/sys/kernel/random/boot_id)
 
 num() { local v; v=$(cat "$STATE/$1" 2>/dev/null || true); [[ $v =~ ^[0-9]+$ ]] && echo "$v" || echo null; }
-st=$(wpa_cli -i "$UPLINK_IF" status 2>/dev/null || true)
-field() { sed -n "s/^$1=//p" <<<"$st"; }
+st=$(iw dev "$UPLINK_IF" link 2>/dev/null || true)
+ssid=$(sed -n 's/^\tSSID: //p' <<<"$st")
+bssid=$(sed -n 's/^Connected to \([0-9a-f:]*\).*/\1/p' <<<"$st")
 persist=locked
 if cryptsetup status persist >/dev/null 2>&1; then persist=unlocked; fi
 
 jq -nc \
-  --arg boot_id "$boot_id" --arg ssid "$(field ssid)" --arg bssid "$(field bssid)" \
+  --arg boot_id "$boot_id" --arg ssid "$ssid" --arg bssid "$bssid" \
   --argjson prev_uptime_s "$(num prev-uptime)" --argjson short_boots "$(num short-boots)" \
   --argjson failed_unlocks "$(num failed-unlocks)" \
   --arg lockdown "$(cat "$STATE/lockdown" 2>/dev/null || true)" --arg persist "$persist" \
