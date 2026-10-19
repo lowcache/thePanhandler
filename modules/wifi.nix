@@ -12,7 +12,16 @@ in
     enable = true;
     # Outside LUKS: Wi-Fi must work while locked. Written by ph-provision (psk_enroll=...).
     secretsFile = "/base/ph/wireless.env";
-    networks.${enrollSSID}.pskRaw = "ext:psk_enroll";
+    # Phone hotspot: enroll + fallback only (burns cellular), so lowest priority.
+    networks.${enrollSSID} = {
+      pskRaw = "ext:psk_enroll";
+      priority = 5;
+    };
+    # Hotel/public uplink, preferred over the hotspot. Open network (no PSK). A
+    # captive portal, if present, is authorized via portal-proxy over the cable
+    # (RISKS R2). TODO: hotel-specific SSID hardcoded here leaks into the store/
+    # repo like the enroll SSID — parameterize/roam dynamically later.
+    networks."ESAconnect".priority = 10;
     # Without a regdomain cfg80211 stays at world (00) and brcmfmac active scan
     # fails (scan error -512 / escan_timeout). Set a country so the regulatory
     # database loads. US = the travel region; change when roaming abroad.
