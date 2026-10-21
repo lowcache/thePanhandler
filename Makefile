@@ -113,6 +113,10 @@ bench:
 status:
 	nix run .#ph-unlock -- status --via $(VIA)
 
+## up: cold start — cable, wait for Pi, unlock, uplink, bubble (HOW=bitwarden, BUBBLE=yes|no)
+up:
+	tools/ph-up.sh $(if $(filter command line,$(origin HOW)),$(HOW),bitwarden)
+
 ## unlock: unlock /persist (HOW=auto|bitwarden|passphrase)
 HOW ?= auto
 unlock:
