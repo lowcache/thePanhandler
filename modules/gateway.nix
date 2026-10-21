@@ -23,6 +23,8 @@ in
     # Laptop (eth0) egresses through the uplink (wlan0). nat.enable turns on IP
     # forwarding and masquerade for internalInterfaces → external.
     nftables.enable = true;
+    # NAT is not an inbound boundary; allow downstream-initiated flows and their replies only.
+    firewall.filterForward = true;
     nat = {
       enable = true;
       externalInterface = wan;

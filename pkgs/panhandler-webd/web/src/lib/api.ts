@@ -114,6 +114,17 @@ export async function fetchWifiStatus(): Promise<WifiStatus> {
   return request<WifiStatus>('/api/wifi/status');
 }
 
+export type EgressMode = 'direct' | 'tor';
+export interface EgressStatus { mode: EgressMode; canUseDirect: boolean }
+
+export function fetchEgressMode(): Promise<EgressStatus> {
+  return request<EgressStatus>('/api/egress');
+}
+
+export function setEgressMode(mode: EgressMode): Promise<EgressStatus> {
+  return request<EgressStatus>('/api/egress', { method: 'POST', body: JSON.stringify({ mode }) });
+}
+
 export async function fetchWifiScan(refresh = false): Promise<ScanNetwork[]> {
   const q = refresh ? '?refresh=1' : '';
   return request<ScanNetwork[]>(`/api/wifi/scan${q}`);
@@ -123,8 +134,8 @@ export async function fetchSavedNetworks(): Promise<SavedNetwork[]> {
   return request<SavedNetwork[]>('/api/wifi/saved');
 }
 
-export async function connectWifi(ssid: string, passphrase?: string): Promise<ConnectResponse> {
-  const body: { ssid: string; passphrase?: string } = { ssid };
+export async function connectWifi(ssid: string, passphrase?: string, selection?: Pick<ScanNetwork, 'bssid' | 'security'>): Promise<ConnectResponse> {
+  const body: { ssid: string; passphrase?: string; bssid?: string; security?: WifiSecurity } = { ssid, ...selection };
   if (passphrase !== undefined && passphrase !== '') {
     body.passphrase = passphrase;
   }

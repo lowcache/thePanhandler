@@ -2,6 +2,7 @@
   lib,
   buildGoModule,
   buildNpmPackage,
+  dbus,
 }:
 let
   ui = buildNpmPackage {
@@ -27,6 +28,7 @@ buildGoModule {
   };
   vendorHash = "sha256-y+3dL8WEiN4PDHLX9/iNijS20wUheiJ+mZrM7af69G0=";
   env.CGO_ENABLED = 0;
+  nativeCheckInputs = [ dbus ];
   ldflags = [
     "-s"
     "-w"

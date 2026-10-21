@@ -67,14 +67,14 @@
         {#if bypass.active}
           <h2 class="banner-heading">Portal bypass active <span class="countdown">{mmss}</span></h2>
           <p class="banner-text">
-            Cable DNS is going to the hotel's resolver so its login page can load. Enter your access code in the
-            portal tab. The bypass ends by itself once the internet is reachable, or when the timer runs out.
+            This cable client's web traffic is temporarily going directly to the hotel, and its DNS uses the
+            hotel's resolver. Use only the portal tab. Your selected internet mode resumes when access ends or the timer expires.
           </p>
         {:else}
           <h2 class="banner-heading">Captive portal detected</h2>
           <p class="banner-text">
-            This network wants a login or access code before it routes traffic. Opening the portal briefly sends
-            cable DNS to the hotel's resolver (plaintext, up to 10 minutes) so its page can load.
+            This network wants a login before it routes traffic. Opening the portal temporarily permits direct
+            HTTP/HTTPS and plaintext DNS for this cable client, for up to 10 minutes. Tor mode keeps other traffic blocked.
           </p>
         {/if}
       </div>
