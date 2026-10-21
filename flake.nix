@@ -117,6 +117,11 @@
         hardeningModule = ./modules/hardening.nix;
       };
 
+      checks.x86_64-linux.gateway = import ./tests/gateway.nix {
+        pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        gatewayModule = ./modules/gateway.nix;
+      };
+
       # Built on the x86_64 laptop; nixfmt = RFC 166 (matches volnix).
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
     };
