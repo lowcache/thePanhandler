@@ -56,9 +56,16 @@ VM test can import them; those modules hardcode the Pi's interface names.
   a portal-authorised MAC survives reboots). `ph-nm-key-load` installs it before NM;
   `ph-nm-key-save` (path unit on the key) adopts NM's first generated key. Seen-BSSIDs and
   leases stay ephemeral. The key maps SSID → MAC and holds no location history.
+- Correction (found by the 2026-10-21 audit): a v2 `secret_key` is hashed with
+  `/etc/machine-id` (NM `nm-core-utils.c`), which the tmpfs root minted fresh every boot, so the
+  key alone did not keep MACs across reboots. `modules/machine-id.nix` keeps the id in
+  `/base/machine-id` (0444; `/base/ph` is 0700) and links `/etc/machine-id` to it. Its first
+  activation adopts the running id, so deploying it does not move the current MACs.
 
 ## Verification
 
+- `checks.x86_64-linux.machine-id` (VM, tmpfs root + persistent /base): id survives a
+  reboot, no transient bind mount, world-readable, first switch adopts the running id.
 - `checks.x86_64-linux.hardening` (VM): sysctls, kexec disabled, no ZFS, uplink drops v4
   and v6 echo with a link control, cable answers v4 and v6, sandboxed dnsmasq leases,
   exposure scores dnsmasq < 5.0 (measured 3.0), tailscaled < 9.6 (measured 8.0).

@@ -59,6 +59,7 @@
           ./modules/webd.nix
           ./modules/portal.nix
           ./modules/hardening.nix
+          ./modules/machine-id.nix
         ];
       };
 
@@ -127,6 +128,11 @@
       checks.x86_64-linux.spine = import ./tests/spine.nix {
         pkgs = nixpkgs.legacyPackages.x86_64-linux;
         unlockModule = ./modules/unlock.nix;
+      };
+
+      checks.x86_64-linux.machine-id = import ./tests/machine-id.nix {
+        pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        machineIdModule = ./modules/machine-id.nix;
       };
 
       checks.x86_64-linux.hardening = import ./tests/hardening.nix {
