@@ -21,6 +21,8 @@ unlock() { nix run .#ph-unlock -- "$@"; }
 persist_state() { unlock status --via cable 2>/dev/null | sed -n 's/.*persist=\([a-z]*\).*/\1/p'; }
 
 [ -f "$HOME/.config/panhandler/agent.json" ] || die "$HOME/.config/panhandler/agent.json missing (volnix tmpfs wiped it?)"
+# BatchMode can't prompt for a passphrase; failed probes earn sshd PerSourcePenalties (resets).
+ssh-add -l >/dev/null 2>&1 || { say "loading your SSH key into the agent"; ssh-add || die "ssh-add failed"; }
 
 active=$(nmcli -g GENERAL.CONNECTION device show "$ETH" 2>/dev/null || true)
 case "$active" in
@@ -29,7 +31,8 @@ case "$active" in
 esac
 
 say "waiting for the Pi on the cable (boot takes ~1-2 min)"
-wait_for 240 pi true || die "Pi not reachable at $PI after 4 min (power/cable/ACT LED?)"
+# Probe with the passphrase-less unlock key's forced `status`, not a login.
+wait_for 240 bash -c '[ -n "$(nix run .#ph-unlock -- status --via cable 2>/dev/null)" ]' || die "Pi not reachable at $PI after 4 min (power/cable/ACT LED?)"
 
 case "$(persist_state)" in
   unlocked) say "persist already unlocked" ;;
