@@ -42,6 +42,7 @@
           ./modules/gateway.nix
           ./modules/webd.nix
           ./modules/portal.nix
+          ./modules/hardening.nix
         ];
       };
 
@@ -109,6 +110,11 @@
       checks.x86_64-linux.spine = import ./tests/spine.nix {
         pkgs = nixpkgs.legacyPackages.x86_64-linux;
         unlockModule = ./modules/unlock.nix;
+      };
+
+      checks.x86_64-linux.hardening = import ./tests/hardening.nix {
+        pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        hardeningModule = ./modules/hardening.nix;
       };
 
       # Built on the x86_64 laptop; nixfmt = RFC 166 (matches volnix).

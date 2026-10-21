@@ -2,6 +2,8 @@
 let
   # UI-added profiles: inside LUKS, so they exist only after unlock (hotel SSIDs are a location trail).
   persistProfiles = "/persist/nm/system-connections";
+  nmKey = "/var/lib/NetworkManager/secret_key";
+  nmKeyBase = "/base/ph/nm-secret_key";
 in
 {
   # NetworkManager owns wlan0 at runtime (scan/join/forget from panhandler-webd, no rebuilds).
@@ -15,7 +17,15 @@ in
     ];
     # brcmfmac flaps under power save (4-way handshake timeout, reason=15) → 2 (off).
     wifi.powersave = false;
+    # Per-SSID random MAC, never the b8:27:eb Raspberry Pi OUI; stable via the key below.
+    wifi.macAddress = "stable-ssid";
     settings = {
+      # No hostname over DHCP; DHCPv6 DUID per profile instead of from machine-id.
+      connection = {
+        "ipv4.dhcp-send-hostname" = false;
+        "ipv6.dhcp-send-hostname" = false;
+        "ipv6.dhcp-duid" = "stable-uuid";
+      };
       keyfile.path = persistProfiles;
       # Captive-portal detection (Connectivity = portal). Resolved via the uplink's own DNS,
       # so it works pre-auth; blocky/DoH is for downstream clients only.
@@ -71,6 +81,35 @@ in
       install -d -m700 ${persistProfiles}
       ${pkgs.networkmanager}/bin/nmcli connection reload
     '';
+  };
+
+  # stable-ssid MACs derive from NM's secret_key. Keep only that key in /base so a portal's MAC
+  # survives reboots; the rest of /var/lib/NetworkManager (seen BSSIDs, leases) stays ephemeral.
+  systemd.services.ph-nm-key-load = {
+    description = "Restore NetworkManager's MAC-derivation key from /base";
+    wantedBy = [ "NetworkManager.service" ];
+    before = [ "NetworkManager.service" ];
+    unitConfig = {
+      RequiresMountsFor = [ "/base" ];
+      ConditionPathExists = nmKeyBase;
+    };
+    serviceConfig.Type = "oneshot";
+    script = "install -D -m600 ${nmKeyBase} ${nmKey}";
+  };
+  # First boot only: adopt the key NM generated, so its format stays NM's business.
+  systemd.paths.ph-nm-key-save = {
+    wantedBy = [ "multi-user.target" ];
+    pathConfig.PathExists = nmKey;
+  };
+  systemd.services.ph-nm-key-save = {
+    description = "Save NetworkManager's MAC-derivation key to /base";
+    unitConfig.RequiresMountsFor = [ "/base" ];
+    serviceConfig = {
+      Type = "oneshot";
+      # Stays active, or PathExists re-triggers it in a loop.
+      RemainAfterExit = true;
+    };
+    script = "[ -e ${nmKeyBase} ] || install -m600 ${nmKey} ${nmKeyBase}";
   };
 
   # Backstop for wifi.powersave, run when brcmfmac creates the netdev (it appears late at boot).
