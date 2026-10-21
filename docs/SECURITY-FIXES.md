@@ -50,3 +50,11 @@ Reason: the backend could replace the UI's selected AP/security with the stronge
 Change: send the selected BSSID/security, recheck both against NM, and set the corresponding WPA protocol. Bind the initial activation to that AP while keeping the saved profile free to roam within its security constraints. Refuse missing/stale/changed selections and a password supplied for an open network. Serialize connect/forget operations. Delete the prior profile only after successful replacement activation; delete only the candidate after activation failure.
 
 Expected result: a stronger open AP cannot silently replace a selected protected AP, and a failed password replacement retains the previous profile. Saved-profile reconnects work without a new scan, and roaming remains available. A spoofed BSSID alone is not cryptographic AP authentication.
+
+## 5. Tailnet reach
+
+Reason: the supplied administrative policy grants unrestricted access to every node, including both Pi identities.
+
+Change: prepare `security/tailscale-policy.json` and its server-side allow/deny assertions. Preserve laptop/phone mutual access; permit their management access to the Pi; permit Pi-to-phone check-ins only.
+
+Expected result after policy publication: either compromised Pi identity cannot initiate arbitrary connections to the laptop or phone. See `TAILSCALE-POLICY.md` for the complete matrix, node-address assumptions and publication checks. The current live policy remains unrestricted until the replacement is reviewed and saved in the admin console.

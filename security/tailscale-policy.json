@@ -1,0 +1,63 @@
+{
+  "hosts": {
+    "volnix": "100.66.249.117",
+    "volnix-v6": "fd7a:115c:a1e0::9b3b:f976",
+    "phone": "100.101.229.9",
+    "phone-v6": "fd7a:115c:a1e0::3801:e5aa"
+  },
+  "tagOwners": {
+    "tag:panhandler": ["autogroup:admin"],
+    "tag:panhandler-locked": ["autogroup:admin"]
+  },
+  "grants": [
+    {
+      "src": ["volnix", "volnix-v6", "phone", "phone-v6"],
+      "dst": ["volnix", "volnix-v6", "phone", "phone-v6"],
+      "ip": ["*"]
+    },
+    {
+      "src": ["volnix", "volnix-v6", "phone", "phone-v6"],
+      "dst": ["tag:panhandler", "tag:panhandler-locked"],
+      "ip": ["tcp:22", "tcp:8080"]
+    },
+    {
+      "src": ["tag:panhandler", "tag:panhandler-locked"],
+      "dst": ["phone", "phone-v6"],
+      "ip": ["tcp:8463"]
+    }
+  ],
+  "ssh": [
+    {
+      "action": "check",
+      "src": ["autogroup:member"],
+      "dst": ["autogroup:self"],
+      "users": ["autogroup:nonroot", "root"]
+    }
+  ],
+  "tests": [
+    {
+      "src": "volnix",
+      "accept": ["tag:panhandler:22", "tag:panhandler:8080", "tag:panhandler-locked:22", "tag:panhandler-locked:8080", "phone:8463"],
+      "deny": ["tag:panhandler:443", "tag:panhandler-locked:443"]
+    },
+    {
+      "src": "phone",
+      "accept": ["tag:panhandler:22", "tag:panhandler:8080", "tag:panhandler-locked:22"],
+      "deny": ["tag:panhandler:53", "tag:panhandler-locked:53"]
+    },
+    {
+      "src": "tag:panhandler",
+      "accept": ["phone:8463"],
+      "deny": ["volnix:22", "volnix:443", "volnix:8080", "phone:22", "phone:443", "tag:panhandler-locked:22"]
+    },
+    {
+      "src": "tag:panhandler-locked",
+      "accept": ["phone:8463"],
+      "deny": ["volnix:22", "volnix:443", "phone:22", "phone:443", "tag:panhandler:22"]
+    },
+    {
+      "src": "100.64.0.99",
+      "deny": ["tag:panhandler:22", "tag:panhandler:8080", "tag:panhandler-locked:22"]
+    }
+  ]
+}

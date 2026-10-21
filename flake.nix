@@ -23,7 +23,9 @@
     }@inputs:
     let
       username = "lowcache";
-
+      tailnetPolicy = (builtins.fromJSON (builtins.readFile ./security/tailscale-policy.json)) // {
+        hosts = self.nixosConfigurations.panhandler.config.panhandler.managementPeers;
+      };
     in
     {
       nixosConfigurations.panhandler = nixpkgs.lib.nixosSystem {
@@ -82,6 +84,7 @@
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
         in
         {
+          tailscale-policy = pkgs.writeText "tailscale-policy.json" (builtins.toJSON tailnetPolicy);
           ph-provision = pkgs.writeShellApplication {
             name = "ph-provision";
             runtimeInputs = with pkgs; [
@@ -146,6 +149,10 @@
       checks.x86_64-linux.webd =
         nixpkgs.legacyPackages.x86_64-linux.callPackage ./pkgs/panhandler-webd
           { };
+
+      checks.x86_64-linux.tailscale-policy =
+        assert builtins.fromJSON (builtins.readFile ./security/tailscale-policy.json) == tailnetPolicy;
+        nixpkgs.legacyPackages.x86_64-linux.runCommand "tailscale-policy-current" { } "mkdir $out";
 
       # Built on the x86_64 laptop; nixfmt = RFC 166 (matches volnix).
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;
