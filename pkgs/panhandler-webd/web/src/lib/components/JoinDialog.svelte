@@ -83,7 +83,8 @@
     try {
       const res = await connectWifi(
         network.ssid,
-        passphrase.length > 0 ? passphrase : undefined
+        passphrase.length > 0 ? passphrase : undefined,
+        network.bssid === '—' ? undefined : { bssid: network.bssid, security: network.security }
       );
       passphrase = '';
       onConnectSuccess(res.ssid, res.ip);

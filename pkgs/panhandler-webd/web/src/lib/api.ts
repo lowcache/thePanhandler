@@ -123,8 +123,8 @@ export async function fetchSavedNetworks(): Promise<SavedNetwork[]> {
   return request<SavedNetwork[]>('/api/wifi/saved');
 }
 
-export async function connectWifi(ssid: string, passphrase?: string): Promise<ConnectResponse> {
-  const body: { ssid: string; passphrase?: string } = { ssid };
+export async function connectWifi(ssid: string, passphrase?: string, selection?: Pick<ScanNetwork, 'bssid' | 'security'>): Promise<ConnectResponse> {
+  const body: { ssid: string; passphrase?: string; bssid?: string; security?: WifiSecurity } = { ssid, ...selection };
   if (passphrase !== undefined && passphrase !== '') {
     body.passphrase = passphrase;
   }

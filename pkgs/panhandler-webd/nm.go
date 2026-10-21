@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -38,10 +40,18 @@ const (
 var errProtected = errors.New("profile is protected")
 
 type NM struct {
+	mutation     sync.Mutex
 	conn         *dbus.Conn
 	iface        string
 	persistDir   string
 	persistMount string
+}
+
+type ConnectRequest struct {
+	SSID       string `json:"ssid"`
+	Passphrase string `json:"passphrase"`
+	BSSID      string `json:"bssid"`
+	Security   string `json:"security"`
 }
 
 type AP struct {
@@ -275,7 +285,10 @@ func (n *NM) Status() (Status, error) {
 }
 
 // Connect activates a saved profile (empty passphrase) or replaces it with a new one.
-func (n *NM) Connect(ssid, passphrase string) (Status, string, error) {
+func (n *NM) Connect(req ConnectRequest) (Status, string, error) {
+	n.mutation.Lock()
+	defer n.mutation.Unlock()
+	ssid, passphrase := req.SSID, req.Passphrase
 	dev, err := n.device()
 	if err != nil {
 		return Status{}, "", err
@@ -295,19 +308,24 @@ func (n *NM) Connect(ssid, passphrase string) (Status, string, error) {
 	var active dbus.ObjectPath
 	var created dbus.ObjectPath
 	storage := "memory"
+	ap := dbus.ObjectPath("/")
+	if existing == nil || passphrase != "" || req.BSSID != "" || req.Security != "" {
+		ap, err = n.findAP(ssid, req.BSSID, req.Security)
+		if err != nil {
+			return Status{}, "", err
+		}
+	}
 	if existing != nil && passphrase == "" {
 		storage = existing.Storage
-		err = n.obj(nmPath).Call(nmDest+".ActivateConnection", 0, existing.path, dev, dbus.ObjectPath("/")).Store(&active)
+		err = n.obj(nmPath).Call(nmDest+".ActivateConnection", 0, existing.path, dev, ap).Store(&active)
 	} else {
-		if existing != nil {
-			if existing.Protected {
-				return Status{}, "", errProtected
-			}
-			if err := n.deleteSSID(ssid); err != nil {
-				return Status{}, "", err
-			}
+		if existing != nil && existing.Protected {
+			return Status{}, "", errProtected
 		}
-		ap, sec := n.findAP(ssid)
+		sec := req.Security
+		if (sec == "open" || sec == "owe") && passphrase != "" {
+			return Status{}, "", errBadInput("selected network does not use a passphrase; rescan before connecting")
+		}
 		settings := map[string]map[string]dbus.Variant{
 			"connection":      {"id": dbus.MakeVariant(ssid), "type": dbus.MakeVariant("802-11-wireless"), "autoconnect": dbus.MakeVariant(true)},
 			"802-11-wireless": {"ssid": dbus.MakeVariant([]byte(ssid)), "mode": dbus.MakeVariant("infrastructure")},
@@ -323,6 +341,13 @@ func (n *NM) Connect(ssid, passphrase string) (Status, string, error) {
 			settings["802-11-wireless-security"] = map[string]dbus.Variant{"key-mgmt": dbus.MakeVariant("wpa-psk"), "psk": dbus.MakeVariant(passphrase)}
 		default:
 			return Status{}, "", fmt.Errorf("unsupported security %q", sec)
+		}
+		if sec != "open" {
+			proto := "rsn"
+			if sec == "wpa-psk" {
+				proto = "wpa"
+			}
+			settings["802-11-wireless-security"]["proto"] = dbus.MakeVariant([]string{proto})
 		}
 		if sec != "open" && sec != "owe" && passphrase == "" {
 			return Status{}, "", errBadInput("passphrase required")
@@ -346,26 +371,42 @@ func (n *NM) Connect(ssid, passphrase string) (Status, string, error) {
 		}
 		return Status{}, "", err
 	}
+	if created != "" && existing != nil {
+		if err := n.obj(existing.path).Call(ifSettingsC+".Delete", 0).Err; err != nil {
+			return Status{}, "", fmt.Errorf("connected, but could not remove previous profile: %w", err)
+		}
+	}
 	st, err := n.Status()
 	return st, storage, err
 }
 
-func (n *NM) findAP(ssid string) (dbus.ObjectPath, string) {
+func (n *NM) findAP(ssid, bssid, expectedSecurity string) (dbus.ObjectPath, error) {
+	mac, err := net.ParseMAC(bssid)
+	if err != nil || len(mac) != 6 || expectedSecurity == "" {
+		return "", errBadInput("select an AP and its security mode from a fresh scan")
+	}
+	switch expectedSecurity {
+	case "open", "owe", "wpa-psk", "wpa2-psk", "wpa3-sae":
+	default:
+		return "", errBadInput("unsupported security mode")
+	}
 	dev, err := n.device()
 	if err != nil {
-		return "/", "open"
+		return "", err
 	}
 	var paths []dbus.ObjectPath
-	if n.obj(dev).Call(ifWireless+".GetAllAccessPoints", 0).Store(&paths) != nil {
-		return "/", "open"
+	if err := n.obj(dev).Call(ifWireless+".GetAllAccessPoints", 0).Store(&paths); err != nil {
+		return "", err
 	}
-	best, bestSig, sec := dbus.ObjectPath("/"), -1, "wpa2-psk"
 	for _, p := range paths {
-		if ap, err := n.apInfo(p); err == nil && ap.SSID == ssid && int(ap.Signal) > bestSig {
-			best, bestSig, sec = p, int(ap.Signal), ap.Security
+		if ap, err := n.apInfo(p); err == nil && ap.SSID == ssid && strings.EqualFold(ap.BSSID, bssid) {
+			if ap.Security != expectedSecurity {
+				return "", errBadInput("AP security changed; rescan before connecting")
+			}
+			return p, nil
 		}
 	}
-	return best, sec
+	return "", errBadInput("selected AP is no longer visible; rescan before connecting")
 }
 
 func (n *NM) waitActive(active dbus.ObjectPath, timeout time.Duration) error {
@@ -411,4 +452,8 @@ func (n *NM) deleteSSID(ssid string) error {
 	return nil
 }
 
-func (n *NM) Forget(ssid string) error { return n.deleteSSID(ssid) }
+func (n *NM) Forget(ssid string) error {
+	n.mutation.Lock()
+	defer n.mutation.Unlock()
+	return n.deleteSSID(ssid)
+}

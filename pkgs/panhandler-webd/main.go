@@ -153,7 +153,7 @@ func routes(nm *NM, allowedNames ...string) http.Handler {
 		writeJSON(w, 200, saved)
 	})
 	mux.HandleFunc("POST /api/wifi/connect", func(w http.ResponseWriter, r *http.Request) {
-		var req struct{ SSID, Passphrase string }
+		var req ConnectRequest
 		if err := decode(r, &req); err != nil {
 			writeErr(w, err)
 			return
@@ -166,7 +166,7 @@ func routes(nm *NM, allowedNames ...string) http.Handler {
 			writeErr(w, err)
 			return
 		}
-		st, storage, err := nm.Connect(req.SSID, req.Passphrase)
+		st, storage, err := nm.Connect(req)
 		if err != nil {
 			writeErr(w, err)
 			return
