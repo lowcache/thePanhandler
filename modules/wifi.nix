@@ -21,9 +21,10 @@ in
     wifi.macAddress = "stable-ssid";
     settings = {
       # No hostname over DHCP; DHCPv6 DUID per profile instead of from machine-id.
+      # The send-hostname defaults are parsed as integers: `false` is silently ignored, so 0.
       connection = {
-        "ipv4.dhcp-send-hostname" = false;
-        "ipv6.dhcp-send-hostname" = false;
+        "ipv4.dhcp-send-hostname" = 0;
+        "ipv6.dhcp-send-hostname" = 0;
         "ipv6.dhcp-duid" = "stable-uuid";
       };
       keyfile.path = persistProfiles;

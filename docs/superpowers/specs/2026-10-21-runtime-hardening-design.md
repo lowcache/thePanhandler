@@ -48,8 +48,8 @@ VM test can import them; those modules hardcode the Pi's interface names.
 ### `modules/wifi.nix`
 - `networking.networkmanager.wifi.macAddress = "stable-ssid"` (scan MAC randomization
   stays on).
-- NM `[connection]` defaults: `ipv4.dhcp-send-hostname=false`,
-  `ipv6.dhcp-send-hostname=false`, `ipv6.dhcp-duid=stable-uuid`. NM sends no vendor class
+- NM `[connection]` defaults: `ipv4.dhcp-send-hostname=0`,
+  `ipv6.dhcp-send-hostname=0` (integer-parsed; `false` is silently ignored, found on hardware), `ipv6.dhcp-duid=stable-uuid`. NM sends no vendor class
   (option 60) unless configured (NM 1.58.1 man page). The IPv4 client-id defaults to the
   current (random) MAC.
 - NM's `secret_key` persists in `/base/ph/nm-secret_key` (decision: unencrypted /base, so
