@@ -29,7 +29,13 @@
         specialArgs = { inherit inputs username; };
         modules = [
           # Reported by `nixos-version --configuration-revision`.
-          { system.configurationRevision = self.rev or self.dirtyRev or "unknown"; }
+          {
+            system.configurationRevision = self.rev or self.dirtyRev or "unknown";
+            panhandler.webd.allowedHostnames = [
+              "panhandler.taila5270e.ts.net"
+              "panhandler-locked.taila5270e.ts.net"
+            ];
+          }
           nixos-hardware.nixosModules.raspberry-pi-3
           "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
           sops-nix.nixosModules.sops
@@ -121,6 +127,10 @@
         pkgs = nixpkgs.legacyPackages.x86_64-linux;
         gatewayModule = ./modules/gateway.nix;
       };
+
+      checks.x86_64-linux.webd =
+        nixpkgs.legacyPackages.x86_64-linux.callPackage ./pkgs/panhandler-webd
+          { };
 
       # Built on the x86_64 laptop; nixfmt = RFC 166 (matches volnix).
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt;

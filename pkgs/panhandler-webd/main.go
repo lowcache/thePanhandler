@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"syscall"
 	"time"
@@ -88,16 +89,41 @@ func decode(r *http.Request, v any) error {
 	return nil
 }
 
-// allowedHost defeats DNS rebinding: only IP literals and the box's own names may address it.
-func allowedHost(host string) bool {
+// Names must be exact: a panhandler.* prefix also matches attacker-owned domains.
+func allowedHost(host string, names ...string) bool {
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
-	host = strings.Trim(host, "[]")
-	return net.ParseIP(host) != nil || host == "panhandler" || strings.HasPrefix(host, "panhandler.")
+	host = strings.TrimSuffix(strings.ToLower(strings.Trim(host, "[]")), ".")
+	if net.ParseIP(host) != nil || host == "panhandler" || host == "panhandler-locked" {
+		return true
+	}
+	for _, name := range names {
+		if name != "" && host == strings.TrimSuffix(strings.ToLower(name), ".") {
+			return true
+		}
+	}
+	return false
 }
 
-func routes(nm *NM) http.Handler {
+func allowedMutation(r *http.Request) bool {
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
+		return false
+	}
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true // CLI clients remain subject to the trusted-interface boundary.
+	}
+	u, err := url.Parse(origin)
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return err == nil && u.Scheme == scheme && strings.EqualFold(u.Host, r.Host) &&
+		u.User == nil && u.Path == "" && u.RawQuery == "" && u.Fragment == ""
+}
+
+func routes(nm *NM, allowedNames ...string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/wifi/status", func(w http.ResponseWriter, r *http.Request) {
 		st, err := nm.Status()
@@ -193,8 +219,12 @@ func routes(nm *NM) http.Handler {
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !allowedHost(r.Host) {
+		if !allowedHost(r.Host, allowedNames...) {
 			http.Error(w, "forbidden host", http.StatusForbidden)
+			return
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !allowedMutation(r) {
+			http.Error(w, "forbidden origin", http.StatusForbidden)
 			return
 		}
 		h := w.Header()
@@ -245,6 +275,7 @@ func serveOn(srv *http.Server, dev, port string) {
 func main() {
 	devs := flag.String("listen-devs", "eth0,tailscale0", "comma-separated trusted interfaces to serve on")
 	port := flag.String("port", "8080", "TCP port")
+	allowedNames := flag.String("allowed-hosts", "", "comma-separated exact additional management hostnames")
 	iface := flag.String("wifi", "wlan0", "NetworkManager Wi-Fi interface")
 	persistDir := flag.String("persist-dir", "/persist/nm/system-connections", "NM keyfile dir")
 	persistMount := flag.String("persist-mount", "/persist", "LUKS mount; mounted = unlocked")
@@ -256,7 +287,7 @@ func main() {
 	}
 	go nm.watchBypass()
 	srv := &http.Server{
-		Handler:           routes(nm),
+		Handler:           routes(nm, strings.Split(*allowedNames, ",")...),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
