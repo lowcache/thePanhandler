@@ -47,4 +47,36 @@ in
   };
 
   services.journald.settings.Journal.Storage = "volatile";
+
+  # No RTC: the clock boots at systemd's build date, months behind, and TLS fails until NTP.
+  # Keep the last synced time in /base; timesyncd takes its clock file's mtime as a floor.
+  systemd = {
+    services.ph-clock-seed = {
+      description = "Seed timesyncd's clock floor from /base";
+      wantedBy = [ "systemd-timesyncd.service" ];
+      before = [ "systemd-timesyncd.service" ];
+      unitConfig = {
+        DefaultDependencies = false;
+        RequiresMountsFor = [ "/base" ];
+        ConditionPathExists = "/base/ph/clock";
+      };
+      serviceConfig.Type = "oneshot";
+      script = ''
+        install -d -m755 -o systemd-timesync -g systemd-timesync /var/lib/systemd/timesync
+        touch -r /base/ph/clock /var/lib/systemd/timesync/clock
+        chown systemd-timesync:systemd-timesync /var/lib/systemd/timesync/clock
+      '';
+    };
+    # Periodic, not at shutdown: the Pi is usually just unplugged.
+    services.ph-clock-save = {
+      description = "Record the synced time in /base";
+      unitConfig.ConditionPathExists = "/run/systemd/timesync/synchronized";
+      serviceConfig.Type = "oneshot";
+      script = "touch /base/ph/clock";
+    };
+    timers.ph-clock-save = {
+      wantedBy = [ "timers.target" ];
+      timerConfig.OnCalendar = "*:0/15";
+    };
+  };
 }

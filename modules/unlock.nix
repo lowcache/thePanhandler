@@ -24,6 +24,7 @@ let
         cryptsetup
         gnugrep
         iproute2
+        jq
         systemd
       ])
       {

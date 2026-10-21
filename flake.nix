@@ -3,7 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware/master";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -46,6 +49,16 @@
       packages.aarch64-linux = {
         sdImage = self.nixosConfigurations.panhandler.config.system.build.sdImage;
         panhandler-webd = nixpkgs.legacyPackages.aarch64-linux.callPackage ./pkgs/panhandler-webd { };
+        # The image's firmware partition, rebuilt standalone as verify-card's reference.
+        firmware =
+          let
+            inherit (self.nixosConfigurations.panhandler) config pkgs;
+          in
+          pkgs.runCommand "panhandler-firmware" { } ''
+            mkdir firmware
+            ${config.sdImage.populateFirmwareCommands}
+            mv firmware $out
+          '';
       };
 
       # Laptop-side tools (run on volnix).
@@ -71,6 +84,18 @@
               zstd
             ];
             text = builtins.readFile ./tools/ph-provision.sh;
+          };
+          verify-card = pkgs.writeShellApplication {
+            name = "verify-card";
+            runtimeInputs = with pkgs; [
+              coreutils
+              diffutils
+              gnugrep
+              gnused
+              jq
+              util-linux
+            ];
+            text = builtins.readFile ./tools/verify-card.sh;
           };
           ph-unlock = pkgs.writers.writePython3Bin "ph-unlock" {
             flakeIgnore = [

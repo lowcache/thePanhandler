@@ -4,6 +4,7 @@ import argparse, base64, json, os, subprocess, sys, time, urllib.error, urllib.r
 CFG_PATH = os.path.expanduser("~/.config/panhandler/agent.json")
 SHARE_PATH = os.path.expanduser("~/.local/share/panhandler/unlock-share")
 BW_ITEM = "panhandler luks slot2"
+BW_SHARE_ITEM = "panhandler laptop share"
 
 
 def cfg():
@@ -81,6 +82,41 @@ def cmd_clear(a):
     return rc
 
 
+def write_private(path, data):
+    with open(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as f:
+        f.write(data)
+
+
+def cmd_rekey(a):
+    """New quorum key K after phone loss/reset or share exposure; slot 2 (Bitwarden) authorizes."""
+    k, s_l = os.urandom(64), os.urandom(64)
+    s_p = bytes(x ^ y for x, y in zip(k, s_l, strict=True))
+    # Staged first: if this run dies after the Pi rekeys, slots 1/2 still unlock and rekey reruns.
+    write_private(SHARE_PATH + ".new", s_l)
+    try:
+        auth = subprocess.run(["rbw", "get", BW_ITEM], capture_output=True, check=True).stdout.strip()
+        if ssh("cable", "rekey", stdin=auth + b"\n" + base64.b64encode(k) + b"\n") != 0:
+            os.remove(SHARE_PATH + ".new")
+            sys.exit("rekey failed on the Pi; nothing changed")
+        os.replace(SHARE_PATH + ".new", SHARE_PATH)
+        tmp = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/dev/shm"), "ph-rekey-share")
+        write_private(tmp, base64.b64encode(s_l) + b"\n")
+        try:
+            # rbw edit reads the new secret from $EDITOR; feed it the file instead of opening one.
+            if subprocess.run(["rbw", "edit", BW_SHARE_ITEM], env=os.environ | {"EDITOR": f"cp {tmp}"}).returncode:
+                print(f"WARNING: Bitwarden '{BW_SHARE_ITEM}' not updated; it still holds the old share", file=sys.stderr)
+        finally:
+            os.remove(tmp)
+    finally:
+        subprocess.run(["rbw", "lock"], check=False)
+    phone_share = os.path.join(os.path.dirname(SHARE_PATH), "phone-share.hex")
+    write_private(phone_share, s_p.hex().encode())
+    print(f"""Rekeyed. The phone's old share is dead; enroll the new one:
+  1. Move {phone_share} to the phone over a channel you trust (Taildrop or USB).
+  2. In Termux:  python3 ~/panhandler/enroll.py < phone-share.hex && rm phone-share.hex
+  3. Here:       shred -u {phone_share}""")
+
+
 def cmd_log(a):
     for r in phone("/log")[1][-a.n:]:
         t = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r["received_at"]))
@@ -97,6 +133,7 @@ def main():
         s.add_argument("--via", choices=["cable", "tailnet"], default="tailnet")
         s.set_defaults(fn=fn)
     sub.add_parser("clear-lockdown").set_defaults(fn=cmd_clear)
+    sub.add_parser("rekey", help="rotate the quorum key (cable only)").set_defaults(fn=cmd_rekey)
     s = sub.add_parser("log")
     s.add_argument("-n", type=int, default=20)
     s.set_defaults(fn=cmd_log)

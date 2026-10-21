@@ -1,0 +1,7 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Boot-log listener under runit (termux-services): restarted on exit, started at boot by
+# runsvdir. Install: cp -r phone/sv/panhandler-listener $PREFIX/var/service/
+exec 2>&1
+# It binds the tailnet IP; space out restarts while Tailscale is still down.
+sleep 3
+exec python3 -u "$HOME/panhandler/listener.py"

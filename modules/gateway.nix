@@ -52,6 +52,19 @@ in
     };
   };
 
+  # FULL comes from NM's plain-HTTP probe and can precede NTP. With no RTC the clock is months
+  # behind until then, so TLS (DoH, list download) fails: restart blocky once more when time syncs.
+  systemd.paths.blocky-on-timesync = {
+    wantedBy = [ "multi-user.target" ];
+    pathConfig.PathExists = "/run/systemd/timesync/synchronized";
+  };
+  systemd.services.blocky-on-timesync.serviceConfig = {
+    Type = "oneshot";
+    # Stays active, or PathExists re-triggers it in a loop.
+    RemainAfterExit = true;
+    ExecStart = "${config.systemd.package}/bin/systemctl try-restart blocky.service";
+  };
+
   # DHCP for the one downstream client. DHCP only (port 0 = no DNS listener here);
   # blocky owns :53. resolveLocalQueries off so dnsmasq never rewrites the Pi's
   # own resolv.conf (the uplink DHCP from the phone owns that).

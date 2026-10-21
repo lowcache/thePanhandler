@@ -69,12 +69,15 @@ pkgs.testers.runNixOSTest {
             "head -c 64 /dev/urandom > /tmp/k0",
             "cryptsetup luksFormat -q --type luks2 --uuid ${uuid} --pbkdf pbkdf2"
             " --pbkdf-force-iterations 1000 --key-file /tmp/k0 /dev/vdb",
+            "head -c 64 /dev/urandom > /tmp/kbw",
+            "cryptsetup luksAddKey -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --key-file /tmp/k0 /dev/vdb /tmp/kbw",
             "printf hunter2 > /tmp/pp",
             "cryptsetup luksAddKey -q --pbkdf argon2id --pbkdf-memory 65536 --key-file /tmp/k0 /dev/vdb /tmp/pp",
             "cryptsetup open --key-file /tmp/k0 /dev/vdb persist && mkfs.ext4 -q /dev/mapper/persist && cryptsetup close persist",
         )
         k0 = pi.succeed("base64 -w0 /tmp/k0").strip()
-        pi.succeed("rm /tmp/k0 /tmp/pp")
+        kbw = pi.succeed("base64 -w0 /tmp/kbw").strip()
+        pi.succeed("rm /tmp/k0 /tmp/kbw /tmp/pp")
 
     with subtest("status over the cable"):
         out = laptop.succeed(ph("cable", "status"))
@@ -129,6 +132,18 @@ pkgs.testers.runNixOSTest {
         laptop.fail(ph("tailnet", "clear-lockdown"))
         laptop.succeed(ph("cable", "clear-lockdown"))
         pi.succeed("test ! -e /base/ph/lockdown", "test $(cat /base/ph/short-boots) = 0")
+
+    with subtest("rekey refused over the tailnet"):
+        laptop.fail(ph("tailnet", "rekey", stdin=f"{kbw}\n{k0}\n"))
+
+    with subtest("rekey over the cable swaps only the quorum slot"):
+        k1 = pi.succeed("head -c 64 /dev/urandom | base64 -w0").strip()
+        out = laptop.succeed(ph("cable", "rekey", stdin=f"{kbw}\n{k1}\n"))
+        assert "old quorum slot 0 removed" in out, out
+        def opens(b64):
+            return pi.execute(f"echo {b64} | base64 -d | cryptsetup open --test-passphrase --key-file=- /dev/vdb")[0] == 0
+        assert opens(k1) and opens(kbw) and not opens(k0)
+        pi.succeed("printf hunter2 | cryptsetup open --test-passphrase --key-file=- /dev/vdb")
 
     with subtest("check-ins queue while the phone is unreachable"):
         pi.succeed("ls /base/ph/pending/*.json")
