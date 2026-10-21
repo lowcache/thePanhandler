@@ -34,7 +34,10 @@ let
     flush set inet ph-egress tor_interfaces
     $elements
     EOF
+    # fsync file then directory: an acknowledged mode must survive an immediate power cut.
+    sync /base/ph/.egress-mode
     mv /base/ph/.egress-mode /base/ph/egress-mode
+    sync /base/ph
     # Old direct/NAT flows must not survive a deliberate mode change.
     ${pkgs.conntrack-tools}/bin/conntrack -D -s 10.73.0.0/24 >/dev/null 2>&1 || true
     printf '%s\n' "$mode" > /run/ph-egress/.mode

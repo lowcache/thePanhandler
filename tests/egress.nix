@@ -213,6 +213,8 @@ pkgs.testers.runNixOSTest {
     ];
   };
   testScript = ''
+    # Without allow_reboot QEMU runs -no-reboot and exits on pi.reboot().
+    pi.start(allow_reboot=True)
     start_all()
     for machine in [pi, hostile, client]:
         machine.wait_for_unit("multi-user.target")
@@ -290,6 +292,12 @@ pkgs.testers.runNixOSTest {
     with subtest("portal exception is per client and only web ports"):
         pi.succeed("install -d -m700 /run/panhandler-webd", "echo 10.73.0.50 > /run/panhandler-webd/portal-client", "systemctl start ph-portal-bypass.service")
         assert client.succeed("curl -fsS --max-time 3 http://192.0.2.2/").strip() == "PORTAL"
+        # Production limits; the expiry subtest shortens the element to observe the clamp.
+        pi.succeed(
+            "systemctl show -p RuntimeMaxUSec ph-portal-bypass | grep -qx RuntimeMaxUSec=10min",
+            "nft list set inet ph-egress portal_clients | grep -q 'timeout 10m'",
+            "nft list set inet ph-egress portal_dns | grep -q 'timeout 10m'",
+        )
         client.fail("curl -fsS --max-time 3 http://192.0.2.2:8000/")
         client.succeed("ip addr add 10.73.0.51/24 dev eth1")
         client.fail("curl --interface 10.73.0.51 -fsS --max-time 3 http://192.0.2.2/")

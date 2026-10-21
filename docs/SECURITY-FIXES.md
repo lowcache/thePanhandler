@@ -2,7 +2,7 @@
 
 These changes are prepared on `security/audit-high-priority`. They are not activated on the Pi or merged into main. The Tailscale policy is a separate, unpublished administrative change.
 
-Shutdown checkpoint: the revised system builds, but item 2's expanded mode VM test is unfinished. See the implementation plan for the last fixture failure and exact resume steps. This branch is not ready for integration or activation.
+Validation (2026-10-21): all VM checks (egress, gateway, hardening, spine), webd Go tests and the policy check pass; the Pi system builds. Activation and hardware acceptance remain separate, approved steps.
 
 ## 1. Forwarding isolation
 
@@ -22,7 +22,7 @@ The applied mode is visible in the UI and persists at `/base/ph/egress-mode`. Di
 
 Tor starts after unlock. Its guard state is encrypted at `/persist/tor`, preserving guard continuity across reboots. Its memory limit is 192 MiB. Locked boots retain management/bootstrap access and enforce the selected mode.
 
-The explicit control-plane exceptions are Tor's TCP transport, Tailscale's `0x80000/0xff0000` transport mark, DHCP, NDP, time-sync NTP, root/time-sync DNS bootstrap, and root HTTP connectivity probes. Root is trusted to administer this firewall; these exceptions do not constitute blanket anonymity for all root activity. Normal unprivileged processes and client applications do not inherit those exceptions.
+The explicit control-plane exceptions are Tor's TCP transport, Tailscale's `0x80000/0xff0000` transport mark, DHCP, NDP, time-sync NTP, root/time-sync DNS bootstrap, and root HTTP connectivity probes. Root is trusted to administer this firewall; these exceptions do not constitute blanket anonymity for all root activity. Start and reload load the rules clamped in one atomic transaction, and deploys reload. `systemctl stop|restart nftables` deletes every table, this one included, until the start completes; do not restart it in Tor mode. Normal unprivileged processes and client applications do not inherit those exceptions.
 
 Portal recovery is an explicit privacy exception: the requesting IPv4 cable client may use direct TCP 80/443 and the uplink DNS resolver for up to 600 seconds. It covers web destinations needed by portal redirects/assets, not just one guessed portal IP. The UI discloses this. Other clients and other ports remain clamped. Both the kernel set timeout and systemd runtime cap enforce expiry. End portal access before ordinary browsing; all tabs on that client share its temporary permission. Open the UI using the cable address to authorize this client; tailnet-originated requests cannot authorize an unrelated cable client.
 
