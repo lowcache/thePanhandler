@@ -125,6 +125,39 @@ func allowedMutation(r *http.Request) bool {
 
 func routes(nm *NM, allowedNames ...string) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/egress", func(w http.ResponseWriter, r *http.Request) {
+		mode, err := egressMode()
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		mode.CanUseDirect = nm.canUseDirect(r)
+		writeJSON(w, 200, mode)
+	})
+	mux.HandleFunc("POST /api/egress", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Mode string `json:"mode"`
+		}
+		if err := decode(r, &req); err != nil {
+			writeErr(w, err)
+			return
+		}
+		if req.Mode == "direct" && !nm.canUseDirect(r) {
+			logEgress(r, req.Mode, "denied")
+			http.Error(w, "Use Direct requires an approved management device over Tailscale", http.StatusForbidden)
+			return
+		}
+		logEgress(r, req.Mode, "requested")
+		mode, err := nm.SetEgressMode(req.Mode)
+		if err != nil {
+			logEgress(r, req.Mode, "failed")
+			writeErr(w, err)
+			return
+		}
+		logEgress(r, req.Mode, "applied")
+		mode.CanUseDirect = nm.canUseDirect(r)
+		writeJSON(w, 200, mode)
+	})
 	mux.HandleFunc("GET /api/wifi/status", func(w http.ResponseWriter, r *http.Request) {
 		st, err := nm.Status()
 		if err != nil {
@@ -197,7 +230,7 @@ func routes(nm *NM, allowedNames ...string) http.Handler {
 			writeErr(w, err)
 			return
 		}
-		if err := nm.SetBypass(req.Enable); err != nil {
+		if err := nm.SetBypass(req.Enable, r.RemoteAddr); err != nil {
 			writeErr(w, err)
 			return
 		}
@@ -265,7 +298,7 @@ func serveOn(srv *http.Server, dev, port string) {
 			} else {
 				ln, idx = l, ifc.Index
 				log.Printf("listening on %s:%s", dev, port)
-				go srv.Serve(l)
+				go srv.Serve(ingressListener{Listener: l, device: dev})
 			}
 		}
 		time.Sleep(5 * time.Second)
@@ -276,6 +309,7 @@ func main() {
 	devs := flag.String("listen-devs", "eth0,tailscale0", "comma-separated trusted interfaces to serve on")
 	port := flag.String("port", "8080", "TCP port")
 	allowedNames := flag.String("allowed-hosts", "", "comma-separated exact additional management hostnames")
+	directPeers := flag.String("direct-peers", "", "comma-separated exact Tailscale IPs allowed to choose Direct mode")
 	iface := flag.String("wifi", "wlan0", "NetworkManager Wi-Fi interface")
 	persistDir := flag.String("persist-dir", "/persist/nm/system-connections", "NM keyfile dir")
 	persistMount := flag.String("persist-mount", "/persist", "LUKS mount; mounted = unlocked")
@@ -286,7 +320,17 @@ func main() {
 		log.Fatalf("system bus: %v", err)
 	}
 	go nm.watchBypass()
+	for _, peer := range strings.Split(*directPeers, ",") {
+		if peer == "" {
+			continue
+		}
+		if net.ParseIP(peer) == nil {
+			log.Fatalf("invalid direct-mode management IP %q", peer)
+		}
+		nm.directPeers = append(nm.directPeers, peer)
+	}
 	srv := &http.Server{
+		ConnContext:       ingressContext,
 		Handler:           routes(nm, strings.Split(*allowedNames, ",")...),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,

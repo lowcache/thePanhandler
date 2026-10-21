@@ -114,6 +114,17 @@ export async function fetchWifiStatus(): Promise<WifiStatus> {
   return request<WifiStatus>('/api/wifi/status');
 }
 
+export type EgressMode = 'direct' | 'tor';
+export interface EgressStatus { mode: EgressMode; canUseDirect: boolean }
+
+export function fetchEgressMode(): Promise<EgressStatus> {
+  return request<EgressStatus>('/api/egress');
+}
+
+export function setEgressMode(mode: EgressMode): Promise<EgressStatus> {
+  return request<EgressStatus>('/api/egress', { method: 'POST', body: JSON.stringify({ mode }) });
+}
+
 export async function fetchWifiScan(refresh = false): Promise<ScanNetwork[]> {
   const q = refresh ? '?refresh=1' : '';
   return request<ScanNetwork[]>(`/api/wifi/scan${q}`);

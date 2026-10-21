@@ -23,6 +23,7 @@
     }@inputs:
     let
       username = "lowcache";
+
     in
     {
       nixosConfigurations.panhandler = nixpkgs.lib.nixosSystem {
@@ -35,6 +36,12 @@
               "panhandler.taila5270e.ts.net"
               "panhandler-locked.taila5270e.ts.net"
             ];
+            panhandler.managementPeers = {
+              volnix = "100.66.249.117";
+              volnix-v6 = "fd7a:115c:a1e0::9b3b:f976";
+              phone = "100.101.229.9";
+              phone-v6 = "fd7a:115c:a1e0::3801:e5aa";
+            };
           }
           nixos-hardware.nixosModules.raspberry-pi-3
           "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
@@ -46,6 +53,7 @@
           ./modules/storage.nix
           ./modules/unlock.nix
           ./modules/gateway.nix
+          ./modules/egress.nix
           ./modules/webd.nix
           ./modules/portal.nix
           ./modules/hardening.nix
@@ -126,6 +134,13 @@
       checks.x86_64-linux.gateway = import ./tests/gateway.nix {
         pkgs = nixpkgs.legacyPackages.x86_64-linux;
         gatewayModule = ./modules/gateway.nix;
+      };
+
+      checks.x86_64-linux.egress = import ./tests/egress.nix {
+        pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        gatewayModule = ./modules/gateway.nix;
+        egressModule = ./modules/egress.nix;
+        portalModule = ./modules/portal.nix;
       };
 
       checks.x86_64-linux.webd =

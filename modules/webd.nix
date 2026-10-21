@@ -9,6 +9,11 @@ let
   port = 8080;
 in
 {
+  options.panhandler.managementPeers = lib.mkOption {
+    type = lib.types.attrsOf lib.types.str;
+    default = { };
+    description = "Named Tailscale management peer IPs; source for the UI downgrade allowlist and policy hosts.";
+  };
   options.panhandler.webd.allowedHostnames = lib.mkOption {
     type = lib.types.listOf lib.types.str;
     default = [ ];
@@ -31,12 +36,14 @@ in
       requires = [ "NetworkManager.service" ];
       serviceConfig = {
         # Binds per-device (SO_BINDTODEVICE) to the trusted side only; refuses wlan0.
-        ExecStart = "${lib.getExe webd} --listen-devs eth0,tailscale0 --port ${toString port} --allowed-hosts ${lib.escapeShellArg (lib.concatStringsSep "," config.panhandler.webd.allowedHostnames)}";
+        ExecStart = "${lib.getExe webd} --listen-devs eth0,tailscale0 --port ${toString port} --allowed-hosts ${lib.escapeShellArg (lib.concatStringsSep "," config.panhandler.webd.allowedHostnames)} --direct-peers ${lib.escapeShellArg (lib.concatStringsSep "," (lib.attrValues config.panhandler.managementPeers))}";
         User = "panhandler-webd";
         Group = "panhandler-webd";
         Restart = "on-failure";
         RestartSec = 5;
         UMask = "0077";
+        RuntimeDirectory = "panhandler-webd";
+        RuntimeDirectoryMode = "0700";
         CapabilityBoundingSet = "";
         NoNewPrivileges = true;
         ProtectSystem = "strict";

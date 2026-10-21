@@ -11,6 +11,7 @@
     type WifiStatus,
   } from './lib/api';
   import Header from './lib/components/Header.svelte';
+  import EgressControl from './lib/components/EgressControl.svelte';
   import JoinDialog from './lib/components/JoinDialog.svelte';
   import PortalBanner from './lib/components/PortalBanner.svelte';
   import SavedList from './lib/components/SavedList.svelte';
@@ -160,6 +161,7 @@
   {/if}
 
   <main class="main-content">
+    <EgressControl />
     <div class="top-row">
       <div class="top-col">
         <UplinkCard status={wifiStatus} onStatusChange={handleStatusUpdate} />
