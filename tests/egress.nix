@@ -242,6 +242,7 @@ pkgs.testers.runNixOSTest {
         client.succeed("systemd-run --unit=direct-stream-client -- python3 ${heldClient}")
         client.wait_until_succeeds("test -e /run/portal-ready")
         pi.succeed("conntrack -L -p tcp --dport 443 | grep -q ESTABLISHED", "ph-egress tor", "ph-egress status | grep -qx tor")
+        pi.succeed("test $(stat -c %a /base/ph) = 700")
         client.succeed("touch /run/portal-next")
         client.wait_until_succeeds("test -e /run/portal-blocked")
         client.fail("test -e /run/portal-leaked")

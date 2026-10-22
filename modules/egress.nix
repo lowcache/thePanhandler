@@ -27,7 +27,9 @@ let
       tor) elements='add element inet ph-egress tor_interfaces { "${cfg.lanInterface}", "${cfg.wanInterface}" }' ;;
       *) echo "invalid saved egress mode; keeping the Tor clamp" >&2; exit 1 ;;
     esac
-    install -d -m755 /base/ph /run/ph-egress
+    # /base/ph holds unlock state (tmpfiles: 0700); never loosen it.
+    install -d -m700 /base/ph
+    install -d -m755 /run/ph-egress
     printf '%s\n' "$mode" > /base/ph/.egress-mode
     chmod 644 /base/ph/.egress-mode
     ${pkgs.nftables}/bin/nft -f - <<EOF
