@@ -1,6 +1,6 @@
 # High-priority audit changes
 
-These changes are prepared on `security/audit-high-priority`. They are not activated on the Pi or merged into main. The Tailscale policy is a separate, unpublished administrative change.
+These changes were merged into main (`cb83228`) and activated on the Pi on 2026-10-21. The restricted Tailscale policy is published.
 
 Validation (2026-10-21): all VM checks (egress, gateway, hardening, spine), webd Go tests and the policy check pass; the Pi system builds. Activation and hardware acceptance remain separate, approved steps.
 
@@ -28,7 +28,7 @@ Portal recovery is an explicit privacy exception: the requesting IPv4 cable clie
 
 Expected result: Direct supports streaming with direct uplink exposure; selected Tor has no direct fallback on daemon failure, locked startup, unsupported protocols or expired portal permissions. Deterministic proxy/DNS fixtures establish packet enforcement; they do not prove public Tor circuit health.
 
-Hardware acceptance remains required after separately approved activation:
+Hardware acceptance, run on the Pi by the user and reported passing on 2026-10-22:
 
 - Run `tools/ph-bench.sh`/`make bench` in each mode and record throughput and Pi 3B CPU/memory.
 - In Tor mode with the phone on the bubble, open the UI over its tailnet address and switch to Direct. Marked-packet VM tests do not establish the live WireGuard/DERP path.
@@ -57,4 +57,4 @@ Reason: the supplied administrative policy grants unrestricted access to every n
 
 Change: prepare `security/tailscale-policy.json` and its server-side allow/deny assertions. Preserve laptop/phone mutual access; permit their management access to the Pi; permit Pi-to-phone check-ins only.
 
-Expected result after policy publication: either compromised Pi identity cannot initiate arbitrary connections to the laptop or phone. See `TAILSCALE-POLICY.md` for the complete matrix, node-address assumptions and publication checks. The current live policy remains unrestricted until the replacement is reviewed and saved in the admin console.
+Expected result after policy publication: either compromised Pi identity cannot initiate arbitrary connections to the laptop or phone. See `TAILSCALE-POLICY.md` for the complete matrix, node-address assumptions and publication checks. Published 2026-10-21; probes confirmed the allowed paths connect and the denied ones time out.
