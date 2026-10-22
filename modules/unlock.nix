@@ -223,7 +223,8 @@ in
             Type = "oneshot";
             ExecStart = lib.getExe checkin;
             Restart = "on-failure";
-            RestartSec = 60;
+            # The first attempt races the tailnet path at boot; retry well before a typical unlock.
+            RestartSec = 15;
           };
         };
 
