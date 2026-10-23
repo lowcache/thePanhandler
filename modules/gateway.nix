@@ -96,6 +96,8 @@ in
       upstreams.groups.default = [ "https://dns.quad9.net/dns-query" ];
       # Resolve the DoH host itself without a chicken-and-egg loop.
       bootstrapDns = [ "9.9.9.9" ];
+      # Most uplinks are IPv4-only; dual-stack dials pick Quad9's AAAA and fail "network unreachable".
+      connectIPVersion = "v4";
       blocking = {
         denylists.ads = [
           "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
