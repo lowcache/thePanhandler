@@ -206,7 +206,7 @@ Dead-man heartbeat logic, beacon payload/channels (3, 4); runtime hardening (2);
 | Keystore: biometric per use | `termux-keystore -u 15`: key usable 15 s after any device unlock | `termux-keystore` help text. `[CEILING]` laptop malware holding the listener allowlist could sign inside that window; the bag thief cannot. Upgrade: a small dedicated Android app with per-use BiometricPrompt |
 | phone share = SHA-256 pad | SHA-512 pad | the share is 64 bytes |
 
-Consent gate, verified on the phone: after a fingerprint unlock the key signs for about 15 s, then refuses (hardware-enforced). Outside the window termux-keystore returns empty output with exit 0. `enroll.py`/`tap.py` poll for the window.
+Consent gate, verified on the phone: after a fingerprint unlock the key signs for about 15 s, then refuses (hardware-enforced). Outside the window termux-keystore returns empty output with exit 0, and Termux:API posts one error notification per refused call. `enroll.py`/`tap.py` open a `termux-fingerprint` prompt and sign once: a fingerprint pass in that prompt opens the window (verified 2026-10-23 from a notification tap). The earlier design polled once per second for the window, so a tap with no fresh fingerprint unlock flooded the phone with error notifications.
 
 Verified facts: `CONFIG_CRYPTO_ADIANTUM=m` + `NHPOLY1305_NEON=m` in the 6.18.56 aarch64 config; the live Pi's CPU flags `fp asimd evtstrm crc32 cpuid` (no `aes`); `sdImage.expandOnBoot` (default true) and `nixPathRegistrationFile` exist; `SHA256withRSA` is PKCS#1 v1.5 (deterministic).
 

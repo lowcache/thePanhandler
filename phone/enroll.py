@@ -9,9 +9,8 @@ s_p = bytes.fromhex(sys.stdin.read().strip())
 assert len(s_p) == 64, "expected a 64-byte share"
 subprocess.run(["termux-keystore", "delete", ALIAS], capture_output=True)
 subprocess.run(["termux-keystore", "generate", ALIAS, "-a", "RSA", "-s", "2048", "-u", VALIDITY_S], check=True)
-print("Lock the phone, then unlock with fingerprint or PIN (face unlock does not count). Waiting up to 2 min...",
-      flush=True)
-p1, p2 = pad(wait_s=120), pad()
+print("Touch the fingerprint sensor when prompted (face does not count).", flush=True)
+p1, p2 = pad(), pad(prompt=False)
 assert p1 == p2, "signatures are not deterministic; the Keystore wrap cannot work"
 home = os.path.expanduser("~/.panhandler")
 os.makedirs(home, mode=0o700, exist_ok=True)

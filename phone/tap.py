@@ -16,8 +16,7 @@ try:
         toast("Panhandler is in LOCKDOWN: unlock over the cable")
         sys.exit(3)
     wrapped = bytes.fromhex(open(os.path.expanduser("~/.panhandler/share.enc")).read().strip())
-    toast("Panhandler: unlock with fingerprint or PIN to release the share")
-    s_p = xor(wrapped, pad(wait_s=60))
+    s_p = xor(wrapped, pad())
     req = urllib.request.Request(f"{BASE}/share", data=json.dumps({"share": s_p.hex()}).encode(),
                                  headers={"Content-Type": "application/json"})
     urllib.request.urlopen(req, timeout=5)

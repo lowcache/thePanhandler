@@ -3,3 +3,4 @@
 keys.txt
 result
 result-*
+__pycache__/

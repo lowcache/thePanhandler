@@ -1,22 +1,23 @@
 """Shared by tap.py and enroll.py: the phone share is wrapped with a Keystore signature."""
-import hashlib, subprocess, time
+import hashlib, json, subprocess
 
 ALIAS = "panhandler"
 MESSAGE = b"panhandler-unlock-v1"
 
 
-def pad(wait_s=0):
-    """SHA-512 of a deterministic RSA PKCS#1 v1.5 signature; needs a strong unlock (fingerprint/PIN)
-    within the key's validity. Outside it the Keystore refuses silently (empty output, exit 0)."""
-    deadline = time.time() + wait_s
-    while True:
-        sig = subprocess.run(["termux-keystore", "sign", ALIAS, "SHA256withRSA"], input=MESSAGE,
-                             capture_output=True, check=True).stdout
-        if sig:
-            return hashlib.sha512(sig).digest()
-        if time.time() >= deadline:
-            raise RuntimeError("keystore refused to sign: unlock with fingerprint or PIN (not face), then retry")
-        time.sleep(1)
+def pad(prompt=True):
+    """SHA-512 of a deterministic RSA PKCS#1 v1.5 signature. The key signs only within 15 s of a strong
+    auth; the fingerprint prompt supplies one. Each refused sign posts a Termux:API error, so sign once."""
+    if prompt:
+        out = subprocess.run(["termux-fingerprint", "-t", "Panhandler", "-d", "Fingerprint releases the share"],
+                             capture_output=True, text=True, timeout=60).stdout
+        if json.loads(out or "{}").get("auth_result") != "AUTH_RESULT_SUCCESS":
+            raise RuntimeError("fingerprint not accepted")
+    sig = subprocess.run(["termux-keystore", "sign", ALIAS, "SHA256withRSA"], input=MESSAGE,
+                         capture_output=True, check=True, timeout=30).stdout
+    if not sig:
+        raise RuntimeError("keystore refused to sign: use fingerprint, not face")
+    return hashlib.sha512(sig).digest()
 
 
 def xor(a, b):
