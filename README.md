@@ -1,26 +1,54 @@
+<p align="center">
+  <img src="./assets/cardboard.png" alt="The Panhandler banner" width="100%">
+</p>
+
 # The Panhandler
 
-[![NixOS unstable](https://img.shields.io/badge/NixOS-unstable-5277C3?logo=nixos&logoColor=white)](https://nixos.org)
-[![Nix flake](https://img.shields.io/badge/nix-flake-7EBAE4?logo=nixos&logoColor=white)](flake.nix)
-[![Raspberry Pi 3B](https://img.shields.io/badge/Raspberry%20Pi-3B-A22846?logo=raspberrypi&logoColor=white)](docs/BLUEPRINT.md)
-[![aarch64-linux](https://img.shields.io/badge/arch-aarch64--linux-555)](flake.nix)
-[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](pkgs/panhandler-webd/go.mod)
-[![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)](pkgs/panhandler-webd/web/package.json)
-[![Tailscale](https://img.shields.io/badge/mesh-Tailscale-242424?logo=tailscale&logoColor=white)](docs/TAILSCALE-POLICY.md)
-[![Tor](https://img.shields.io/badge/egress-Tor-7D4698?logo=torproject&logoColor=white)](modules/egress.nix)
-[![sops-nix](https://img.shields.io/badge/secrets-sops--nix-informational)](modules/secrets.nix)
-[![Threat model](https://img.shields.io/badge/threat%20model-documented-success)](docs/THREAT-MODEL.md)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/lowcache/thePanhandler)](https://github.com/lowcache/thePanhandler/commits/main)
+<p align="center">
+  <a href="https://components101.com/microcontrollers/raspberry-pi-3-pinout-features-datasheet"><img src="https://img.shields.io/badge/Raspberry%20Pi%203B-A22846?style=for-the-badge&logo=raspberrypi&logoColor=white" alt="Raspberry Pi 3B"></a>
+  <a href="https://nixos.org"><img src="https://img.shields.io/badge/NixOS-5277C3?style=for-the-badge&logo=nixos&logoColor=white" alt="NixOS"></a>
+  <a href="https://svelte.dev"><img src="https://img.shields.io/badge/Svelte-4A4A55?style=for-the-badge&logo=svelte&logoColor=FF3E00" alt="Svelte"></a>
+  <a href="pkgs/panhandler-webd/go.mod"><img src="https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go"></a>
+  <a href="docs/TAILSCALE-POLICY.md"><img src="https://img.shields.io/badge/Tailscale-242424?style=for-the-badge&logo=tailscale&logoColor=white" alt="Tailscale"></a>
+  <a href="modules/egress.nix"><img src="https://img.shields.io/badge/Tor-7D4698?style=for-the-badge&logo=torproject&logoColor=white" alt="Tor"></a>
+  <br>
+  <a href="flake.nix"><img src="https://img.shields.io/badge/arch-aarch64--linux-555" alt="aarch64-linux"></a>
+  <a href="modules/secrets.nix"><img src="https://img.shields.io/badge/secrets-sops--nix-informational" alt="sops-nix"></a>
+  <a href="docs/THREAT-MODEL.md"><img src="https://img.shields.io/badge/threat%20model-documented-success" alt="Threat model"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow" alt="MIT license"></a>
+  <a href="https://github.com/lowcache/thePanhandler/commits/main"><img src="https://img.shields.io/github/last-commit/lowcache/thePanhandler" alt="Last commit"></a>
+</p>
 
-> **pan·han·dler** /ˈpanˌhandlər/ *noun*
-> 1. A person who begs in the street, hand out, asking passers-by for whatever they'll spare.
-> 2. A Raspberry Pi that sits on hostile public Wi-Fi with its hand out: it takes whatever the
->    network leaks and gives nothing back. *Pans for gold, handles the dirt.*
+---
 
-A hardened NixOS travel router for hotel, café and airport Wi-Fi. The Pi joins the hostile network,
-your laptop plugs into it over Ethernet, and the hostile side sees a forgettable box with no open
-ports. Management happens only over the cable or your tailnet.
+## Panhandler /ˈpæn.hænd.lə(ɹ)/ noun
+
+1. An urban beggar who typically stands on a street with a homemade cardboard sign  containing either a humorous appeal, a solemn oath, or a sorrowful lamentation. Always accompanied by  an outstretched hand or container for bills & loose change; One who panhandles.
+2. A bum, Hobo, Traveler, Crusty, Street Urchin, Squatter, un-housed (in-between residences at the  moment), homeless (one without a home)
+3. Grifter.
+
+## So...What is The Panhandler Device?
+
+A Raspberry Pi 3B that flies a cardboard sign on every hostile network while quietly running a
+full SOC off the mesh. It exists to solve a problem the author actually has: living on rotating
+public Wi-Fi where networks are hostile, discovery is off, and captive portals + client isolation
+make normal homelab reach impossible.
+
+A panhandler with claim to a busy intersection darts in and out of the flow of traffic gathering
+spare change and other forms of charity, defending his claim to the location, and acting as a
+silent witness to everything that passes through that single city block. The travel router in this
+repo does the same for the small footprint its user occupies on the internet every time they go
+online: an unassuming watcher, defender, and collector for the devices on the user's mesh.
+
+One always-on, pocket-sized Linux node with two faces:
+
+- **On the hostile LAN** (hotel/public Wi-Fi): the most forgettable device on the network — a
+  per-network MAC, no DHCP hostname, no open ports, no mDNS. A panhandler no one looks at twice.
+- **On the tailnet**: `panhandler` — a privacy gateway (and, in v2, a sensor platform) you reach
+  from anywhere, through client isolation, with no captive-portal dance.
+
+**Built on:** NixOS (aarch64, cross-built from the laptop) + nixos-hardware + nix modules.
+
 
 ## What it does today (v1 spine)
 
@@ -37,7 +65,9 @@ ports. Management happens only over the cable or your tailnet.
 | **Tailnet** | Restricted ACL: a compromised Pi can reach nothing except phone check-ins ([policy](docs/TAILSCALE-POLICY.md)) |
 
 **Roadmap (v2+, not built):** passive network auditor, CertStream sentinel, FOIA watcher,
-on-device ML triage, lost-mode beacon, USB Wi-Fi AP. See [`RISKS.md` §2](docs/RISKS.md) for why the
+on-device ML triage, slot-machine dApp fairness watchdog, lost-mode beacon, USB Wi-Fi AP. The
+contracts the watchdog will watch (CryptoSpin on Solana/Rust, and a Solidity slot) are audited as
+separate projects ([BLUEPRINT §7](docs/BLUEPRINT.md)). See [`RISKS.md` §2](docs/RISKS.md) for why the
 spine comes first.
 
 ## How it works
