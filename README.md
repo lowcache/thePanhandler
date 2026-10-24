@@ -29,8 +29,8 @@
 
 ## So...What is The Panhandler Device?
 
-A Raspberry Pi 3B that flies a cardboard sign on every hostile network while quietly running a
-full SOC off the mesh. It exists to solve a problem the author actually has: living on rotating
+A Raspberry Pi 3B that flies a cardboard sign on every hostile network while quietly guarding the
+devices behind it, managed only from the mesh. The sensor side (its "hobo SOC") is v2. It exists to solve a problem the author actually has: living on rotating
 public Wi-Fi where networks are hostile, discovery is off, and captive portals + client isolation
 make normal homelab reach impossible.
 
@@ -38,7 +38,8 @@ A panhandler with claim to a busy intersection darts in and out of the flow of t
 spare change and other forms of charity, defending his claim to the location, and acting as a
 silent witness to everything that passes through that single city block. The travel router in this
 repo does the same for the small footprint its user occupies on the internet every time they go
-online: an unassuming watcher, defender, and collector for the devices on the user's mesh.
+online: an unassuming defender for the devices on the user's mesh today, and its watcher and
+collector once the v2 sensors land.
 
 One always-on, pocket-sized Linux node with two faces:
 
