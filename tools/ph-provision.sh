@@ -42,8 +42,9 @@ card() {
   # Global, not local: the EXIT trap runs after card() returns.
   tmp=$(mktemp -d "${XDG_RUNTIME_DIR:-/dev/shm}/ph-provision.XXXXXX")
   chmod 700 "$tmp"
-  # errexit holds inside the trap too: each step must not stop the ones after it.
-  trap '$S umount -q "$tmp/sd" "$tmp/persist" 2>/dev/null || true; $S cryptsetup close ph-provision 2>/dev/null || true; rbw lock 2>/dev/null || true; rm -rf "$tmp"' EXIT
+  # errexit holds inside the trap too: each step must not stop the ones after it, and rm never
+  # crosses into a card that failed to unmount.
+  trap '$S umount -q "$tmp/sd" "$tmp/persist" 2>/dev/null || true; $S cryptsetup close ph-provision 2>/dev/null || true; rbw lock 2>/dev/null || true; rm -rf --one-file-system "$tmp"' EXIT
 
   echo "== flash"
   case $image in *.zst) zstd -dc "$image" ;; *) cat "$image" ;; esac | $S dd of="$dev" bs=4M conv=fsync status=progress

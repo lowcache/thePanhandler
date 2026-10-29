@@ -358,5 +358,7 @@ pkgs.testers.runNixOSTest {
         pi.succeed(f"echo {unknown} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx tor /run/ph-egress/mode")
         pi.succeed(f"echo {tether} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx direct /run/ph-egress/mode")
         assert client.succeed("curl -fsS --max-time 3 http://192.0.2.2:8000/").strip() == "CLEARNET"
+        pi.succeed(f"echo '{unknown} torr' >> /persist/ph-egress-policy", f"echo {unknown} > /run/test-net")
+        pi.succeed("systemctl start ph-egress-auto.service", "grep -qx tor /run/ph-egress/mode")
   '';
 }

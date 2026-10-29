@@ -8,6 +8,13 @@ let
   cfg = config.panhandler.egress;
   lan = config.panhandler.lanInterface;
   wans = builtins.concatStringsSep ", " (map (i: ''"${i}"'') config.panhandler.wanInterfaces);
+  torUid = toString config.ids.uids.tor;
+  clockUid = toString config.ids.uids.systemd-timesync;
+  transport = "meta mark & 0xff0000 == 0x80000";
+  bootstrap = ''
+    meta skuid { 0, ${clockUid} } udp dport 53 return
+    meta skuid 0 tcp dport 80 return
+  '';
   wanRe = builtins.concatStringsSep "|" config.panhandler.wanInterfaces;
   # Per-network policy: "<NM connection UUID> <mode>" lines. Inside LUKS: saved networks are a location trail.
   policy = "/persist/ph-egress-policy";
@@ -27,30 +34,6 @@ let
     umask 077
     { grep -sv "^$net " ${policy} || true; echo "$net $1"; } >${policy}.tmp
     mv ${policy}.tmp ${policy}
-  '';
-  auto = pkgs.writeShellScript "ph-egress-auto" ''
-    set -eu
-    ${currentNet}
-    mode=""
-    if [ -n "$net" ] && [ -e ${policy} ]; then mode=$(awk -v n="$net" '$1 == n { m = $2 } END { print m }' ${policy}); fi
-    [ -n "$mode" ] || mode=${cfg.unknownNetwork}
-    if [ "$mode" = keep ] || [ "$(cat /run/ph-egress/mode 2>/dev/null)" = "$mode" ]; then exit 0; fi
-    exec ${applyMode} "$mode"
-  '';
-  policyPath = with pkgs; [
-    networkmanager
-    iproute2
-    gnused
-    gnugrep
-    gawk
-    coreutils
-  ];
-  torUid = toString config.ids.uids.tor;
-  clockUid = toString config.ids.uids.systemd-timesync;
-  transport = "meta mark & 0xff0000 == 0x80000";
-  bootstrap = ''
-    meta skuid { 0, ${clockUid} } udp dport 53 return
-    meta skuid 0 tcp dport 80 return
   '';
   applyMode = pkgs.writeShellScript "ph-egress-mode" ''
     set -eu
@@ -85,7 +68,29 @@ let
     chmod 644 /run/ph-egress/.mode
     mv /run/ph-egress/.mode /run/ph-egress/mode
     echo "egress mode applied: $mode"
+    # Still under the lock, so a slower earlier choice can't overwrite this one.
+    if [ "''${2:-}" = learn ]; then ${learn} "$mode"; fi
   '';
+  auto = pkgs.writeShellScript "ph-egress-auto" ''
+    set -eu
+    ${currentNet}
+    mode=""
+    if [ -n "$net" ] && [ -e ${policy} ]; then mode=$(awk -v n="$net" '$1 == n { m = $2 } END { print m }' ${policy}); fi
+    [ -n "$mode" ] || mode=${cfg.unknownNetwork}
+    # A corrupt entry fails closed.
+    case $mode in direct | tor | keep) ;; *) mode=tor ;; esac
+    # NM runs this after the uplink is up: a Direct-to-Tor change leaves a brief clear window.
+    if [ "$mode" = keep ] || [ "$(cat /run/ph-egress/mode 2>/dev/null)" = "$mode" ]; then exit 0; fi
+    exec ${applyMode} "$mode"
+  '';
+  policyPath = with pkgs; [
+    networkmanager
+    iproute2
+    gnused
+    gnugrep
+    gawk
+    coreutils
+  ];
 in
 {
   imports = [ ./interfaces.nix ];
@@ -136,8 +141,7 @@ in
       path = policyPath;
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "${applyMode} direct";
-        ExecStartPost = "${learn} direct";
+        ExecStart = "${applyMode} direct learn";
       };
     };
     systemd.services.ph-egress-tor = {
@@ -146,8 +150,7 @@ in
       path = policyPath;
       serviceConfig = {
         Type = "oneshot";
-        ExecStart = "${applyMode} tor";
-        ExecStartPost = "${learn} tor";
+        ExecStart = "${applyMode} tor learn";
       };
     };
     # Re-applies the learned mode when the default-route uplink changes, and once after unlock.

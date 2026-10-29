@@ -16,7 +16,7 @@ warn() { echo "WARN  $*"; }
 lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS "$dev"
 if lsblk -no MOUNTPOINTS "$dev" | grep -q .; then echo "$dev has mounted partitions; unmount first" >&2; exit 1; fi
 mnt=$(mktemp -d "${XDG_RUNTIME_DIR:-/dev/shm}/verify-card.XXXXXX")
-trap '$S umount -q "$mnt/fw" "$mnt/sys" 2>/dev/null || true; rm -rf "$mnt"' EXIT
+trap '$S umount -q "$mnt/fw" "$mnt/sys" 2>/dev/null || true; rm -rf --one-file-system "$mnt"' EXIT
 mkdir "$mnt/fw" "$mnt/sys"
 # Rows 2 and 3 = partitions 1 (firmware, vfat) and 2 (system, ext4). noload: no journal replay.
 $S mount -o ro,nodev,nosuid,noexec "$(lsblk -lnpo NAME "$dev" | sed -n 2p)" "$mnt/fw"
