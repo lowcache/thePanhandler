@@ -4,7 +4,7 @@ Notable changes, newest first. Dates are commit dates.
 
 ## Unreleased
 
-## v1.0.0 — 2026-10-29: the spine
+## v1.0 — 2026-10-29: the spine
 
 v1 is the daily-driven gateway: every item in the RISKS.md §3 definition of done has hardware
 or VM evidence. Sensors and the SOC pillar are v2+.
