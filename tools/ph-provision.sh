@@ -42,7 +42,8 @@ card() {
   # Global, not local: the EXIT trap runs after card() returns.
   tmp=$(mktemp -d "${XDG_RUNTIME_DIR:-/dev/shm}/ph-provision.XXXXXX")
   chmod 700 "$tmp"
-  trap '$S umount -q "$tmp/sd" "$tmp/persist" 2>/dev/null; $S cryptsetup close ph-provision 2>/dev/null; rm -rf "$tmp"' EXIT
+  # errexit holds inside the trap too: each step must not stop the ones after it.
+  trap '$S umount -q "$tmp/sd" "$tmp/persist" 2>/dev/null || true; $S cryptsetup close ph-provision 2>/dev/null || true; rbw lock 2>/dev/null || true; rm -rf "$tmp"' EXIT
 
   echo "== flash"
   case $image in *.zst) zstd -dc "$image" ;; *) cat "$image" ;; esac | $S dd of="$dev" bs=4M conv=fsync status=progress
@@ -111,12 +112,13 @@ card() {
   base64 -w0 "$tmp/K_BW" >"$tmp/K_BW.b64"
   base64 -w0 "$tmp/S_L" >"$tmp/S_L.b64"
   # Slot 2's key exists only here: on failure, kill slot 2 instead of losing the run.
-  if bw_add "panhandler luks slot2" "$tmp/K_BW.b64" &&
-    bw_add "panhandler laptop share" "$tmp/S_L.b64" &&
-    bw_add "panhandler age key" "$tmp/age.txt" &&
-    bw_add "panhandler unlock ssh key" "$unlock_key"; then
-    rbw lock
-  else
+  # rbw is locked by the EXIT trap whichever way this goes.
+  if ! {
+    bw_add "panhandler luks slot2" "$tmp/K_BW.b64" &&
+      bw_add "panhandler laptop share" "$tmp/S_L.b64" &&
+      bw_add "panhandler age key" "$tmp/age.txt" &&
+      bw_add "panhandler unlock ssh key" "$unlock_key"
+  }; then
     echo "Bitwarden step failed: removing slot 2 (its key would be lost). Re-add it later with the passphrase." >&2
     $S cryptsetup luksKillSlot -q --key-file "$tmp/K" "$p3_part" 2
   fi

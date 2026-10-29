@@ -16,7 +16,7 @@ warn() { echo "WARN  $*"; }
 lsblk -o NAME,SIZE,FSTYPE,LABEL,MOUNTPOINTS "$dev"
 if lsblk -no MOUNTPOINTS "$dev" | grep -q .; then echo "$dev has mounted partitions; unmount first" >&2; exit 1; fi
 mnt=$(mktemp -d "${XDG_RUNTIME_DIR:-/dev/shm}/verify-card.XXXXXX")
-trap '$S umount -q "$mnt/fw" "$mnt/sys" 2>/dev/null; rm -rf "$mnt"' EXIT
+trap '$S umount -q "$mnt/fw" "$mnt/sys" 2>/dev/null || true; rm -rf "$mnt"' EXIT
 mkdir "$mnt/fw" "$mnt/sys"
 # Rows 2 and 3 = partitions 1 (firmware, vfat) and 2 (system, ext4). noload: no journal replay.
 $S mount -o ro,nodev,nosuid,noexec "$(lsblk -lnpo NAME "$dev" | sed -n 2p)" "$mnt/fw"
@@ -42,7 +42,8 @@ check_entry() {
   t=${t#init=}
   t=${t%/init}
   if [ -z "$t" ] || [ ! -e "$t" ]; then
-    warn "$label: system ${t:-?} is not in this store; entry unverified"
+    # An entry nothing here can vouch for is a failure, not a pass with a footnote.
+    fail "$label: system ${t:-?} is not in this store (nix copy it here, or GC old generations on the Pi)"
     return
   fi
   [ "$append" = "init=$t/init $(cat "$t/kernel-params")" ] || fail "$label: cmdline differs: $append"
@@ -86,15 +87,21 @@ done
 echo "== system closures (${#tops[@]} systems) vs this store's NAR hashes"
 n=0
 if [ "${#tops[@]}" -gt 0 ]; then
+  # Enumerate first: a failure inside process substitution would pass silently as "0 paths".
+  if ! closure=$(nix path-info -r --json "${!tops[@]}" |
+    jq -r 'if type == "array" then .[] else to_entries[] | .value + {path: .key} end | "\(.path) \(.narHash)"'); then
+    fail "could not enumerate the system closures"
+  fi
   while read -r p h; do
+    [ -n "$p" ] || continue
     n=$((n + 1))
     if [ ! -e "$sys$p" ]; then
       fail "missing $p"
     elif [ "$(nix hash path "$sys$p")" != "$h" ]; then
       fail "modified $p"
     fi
-  done < <(nix path-info -r --json "${!tops[@]}" |
-    jq -r 'if type == "array" then .[] else to_entries[] | .value + {path: .key} end | "\(.path) \(.narHash)"')
+  done <<<"${closure:-}"
+  [ "$n" -gt 0 ] || fail "closure enumeration returned no paths"
 fi
 echo "hashed $n store paths"
 
