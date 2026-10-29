@@ -2,6 +2,10 @@
 .DEFAULT_GOAL := help
 SHELL := bash
 .SHELLFLAGS := -euo pipefail -c
+# Quiet recipes; `make V=1 <target>` shows the commands again.
+ifndef V
+.SILENT:
+endif
 
 VIA     ?= cable
 PI_cable   := lowcache@10.73.0.1
