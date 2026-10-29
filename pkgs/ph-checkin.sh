@@ -10,12 +10,13 @@ bssid=$(sed -n 's/^Connected to \([0-9a-f:]*\).*/\1/p' <<<"$st")
 persist=locked
 if cryptsetup status persist >/dev/null 2>&1; then persist=unlocked; fi
 
+# SSID/BSSID never touch the unencrypted queue (no location trail on disk); only the live post carries them.
 jq -nc \
-  --arg boot_id "$boot_id" --arg ssid "$ssid" --arg bssid "$bssid" \
+  --arg boot_id "$boot_id" \
   --argjson prev_uptime_s "$(num prev-uptime)" --argjson short_boots "$(num short-boots)" \
   --argjson failed_unlocks "$(num failed-unlocks)" \
   --arg lockdown "$(cat "$STATE/lockdown" 2>/dev/null || true)" --arg persist "$persist" \
-  '{boot_id: $boot_id, prev_uptime_s: $prev_uptime_s, ssid: $ssid, bssid: $bssid,
+  '{boot_id: $boot_id, prev_uptime_s: $prev_uptime_s,
     short_boots: $short_boots, failed_unlocks: $failed_unlocks,
     lockdown: (if $lockdown == "" then null else $lockdown end), persist: $persist, source: "pi"}' \
   >"$q/$boot_id.json.tmp"
@@ -24,7 +25,13 @@ mv "$q/$boot_id.json.tmp" "$q/$boot_id.json"
 [ -n "$CHECKIN_URL" ] || exit 0
 rc=0
 for f in "$q"/*.json; do
-  if resp=$(curl -fsS --max-time 10 -H 'Content-Type: application/json' --data @"$f" "$CHECKIN_URL"); then
+  # A record from an earlier boot arrives late: flag it so the phone keeps it out of the cluster window.
+  if [ "$f" = "$q/$boot_id.json" ]; then
+    rec=$(jq -c --arg ssid "$ssid" --arg bssid "$bssid" '. + {ssid: $ssid, bssid: $bssid}' "$f")
+  else
+    rec=$(jq -c '. + {queued: true}' "$f")
+  fi
+  if resp=$(curl -fsS --max-time 10 -H 'Content-Type: application/json' --data "$rec" "$CHECKIN_URL"); then
     rm -f "$f"
     # The phone holds the authoritative lockdown (remote cluster); mirror it so manual tailnet unlocks refuse too.
     reason=$(jq -r '.lockdown // empty' <<<"$resp" 2>/dev/null || true)

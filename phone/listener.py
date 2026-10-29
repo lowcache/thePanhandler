@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Panhandler boot-log listener (Termux). Authoritative boot log + lockdown; holds a tapped share briefly."""
-import json, os, subprocess, sys, threading, time
+import json, os, re, subprocess, sys, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HOME = os.path.expanduser("~/.panhandler")
@@ -10,6 +10,12 @@ LOCK = os.path.join(HOME, "lockdown.json")
 WINDOW_S = CFG.get("cluster_window_min", 60) * 60
 BOOTS = CFG.get("cluster_boots", 3)
 SHARE_TTL_S = 120
+MAX_BODY = 4096
+# Boot-record fields the Pi may send, with their accepted types (None = JSON null).
+FIELDS = {"boot_id": str, "prev_uptime_s": (int, type(None)), "short_boots": (int, type(None)),
+          "failed_unlocks": (int, type(None)), "lockdown": (str, type(None)), "persist": str,
+          "source": str, "ssid": str, "bssid": str, "queued": bool}
+BOOT_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 TAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tap.py")
 
 lock = threading.Lock()
@@ -69,23 +75,44 @@ class H(BaseHTTPRequestHandler):
 
     def body(self):
         n = int(self.headers.get("Content-Length", 0))
-        return json.loads(self.rfile.read(n) or b"{}")
+        if not 0 <= n <= MAX_BODY:
+            raise ValueError("body too large")
+        obj = json.loads(self.rfile.read(n) or b"{}")
+        if not isinstance(obj, dict):
+            raise ValueError("body is not an object")
+        return obj
+
+    def checkin_record(self):
+        rec = self.body()
+        if not BOOT_ID.match(str(rec.get("boot_id", ""))):
+            raise ValueError("bad boot_id")
+        if any(k not in FIELDS or isinstance(v, bool) != (FIELDS[k] is bool) or not isinstance(v, FIELDS[k])
+               for k, v in rec.items()):
+            raise ValueError("unexpected field or type")
+        return rec
 
     def do_POST(self):
+        try:
+            self.post()
+        except (ValueError, KeyError):
+            self.reply(400, {})
+
+    def post(self):
         if self.path == "/checkin" and self.allowed("pi"):
-            rec = self.body()
+            rec = self.checkin_record()
             rec["client_ip"], rec["received_at"] = self.client(), time.time()
             with lock:
                 old = {r["boot_id"] for r in records()}
                 new_boot = rec.get("boot_id") not in old
                 with open(LOG, "a") as f:
                     f.write(json.dumps(rec) + "\n")
-                recent = {r["boot_id"]: r["received_at"] for r in records()}
+                # Queued records are earlier boots delivered late: their receipt time says nothing.
+                recent = {r["boot_id"]: r["received_at"] for r in records() if not r.get("queued")}
                 fresh = [t for t in recent.values() if t >= time.time() - WINDOW_S]
                 if not lockdown():
                     if rec.get("lockdown"):
                         set_lockdown(rec["lockdown"])
-                    elif new_boot and len(fresh) >= BOOTS:
+                    elif new_boot and not rec.get("queued") and len(fresh) >= BOOTS:
                         set_lockdown(f"remote-cluster: {len(fresh)} boots in {WINDOW_S // 60} min")
                 reason = lockdown()
             if new_boot or rec.get("failed_unlocks"):
