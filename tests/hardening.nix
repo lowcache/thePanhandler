@@ -6,7 +6,7 @@ pkgs.testers.runNixOSTest {
 
   nodes.pi = _: {
     imports = [ hardeningModule ];
-    panhandler.hardening.wanInterface = "eth1";
+    panhandler.wanInterfaces = [ "eth1" ];
     virtualisation.vlans = [
       1
       2

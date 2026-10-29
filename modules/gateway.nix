@@ -2,14 +2,16 @@
 let
   # Downlink = the trusted side the laptop plugs into over the cable.
   # 10.73/24 sits deliberately off the common 192.168.0/1.x hotel ranges.
-  lan = "eth0";
-  wan = "wlan0";
+  lan = config.panhandler.lanInterface;
+  wans = builtins.concatStringsSep ", " (map (i: ''"${i}"'') config.panhandler.wanInterfaces);
   gw = "10.73.0.1";
   prefix = 24;
 in
 {
+  imports = [ ./interfaces.nix ];
+
   networking = {
-    # eth0 is the static downlink; wlan0 the uplink (NetworkManager, wifi.nix).
+    # eth0 is the static downlink; the uplinks (wlan0, usb0) belong to NetworkManager.
     interfaces.${lan} = {
       useDHCP = false;
       ipv4.addresses = [
@@ -20,15 +22,22 @@ in
       ];
     };
 
-    # Laptop (eth0) egresses through the uplink (wlan0). nat.enable turns on IP
-    # forwarding and masquerade for internalInterfaces → external.
+    # Laptop (eth0) egresses through whichever uplink holds the default route. networking.nat
+    # takes one externalInterface, and null would also masquerade the cable into tailscale0.
     nftables.enable = true;
     # NAT is not an inbound boundary; allow downstream-initiated flows and their replies only.
     firewall.filterForward = true;
-    nat = {
-      enable = true;
-      externalInterface = wan;
-      internalInterfaces = [ lan ];
+    firewall.extraForwardRules = ''
+      iifname "${lan}" oifname { ${wans} } accept comment "cable to uplinks"
+    '';
+    nftables.tables.ph-nat = {
+      family = "ip";
+      content = ''
+        chain post {
+          type nat hook postrouting priority srcnat; policy accept;
+          iifname "${lan}" oifname { ${wans} } masquerade
+        }
+      '';
     };
 
     # blocky fetches its denylist and opens its DoH connections once, at start. A boot with no
@@ -44,7 +53,7 @@ in
       }
     ];
 
-    # Open DNS + DHCP on the downlink only; wlan0 stays closed (base.nix default-deny).
+    # Open DNS + DHCP on the downlink only; the uplinks stay closed (base.nix default-deny).
     firewall.interfaces.${lan} = {
       allowedUDPPorts = [
         53
@@ -53,6 +62,8 @@ in
       allowedTCPPorts = [ 53 ];
     };
   };
+
+  boot.kernel.sysctl."net.ipv4.conf.all.forwarding" = true;
 
   # FULL comes from NM's plain-HTTP probe and can precede NTP. With no RTC the clock is months
   # behind until then, so TLS (DoH, list download) fails: restart blocky once more when time syncs.

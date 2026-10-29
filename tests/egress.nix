@@ -110,8 +110,10 @@ pkgs.testers.runNixOSTest {
             prefixLength = 64;
           }
         ];
-        networking.nat.internalInterfaces = lib.mkForce [ "eth2" ];
-        networking.nat.externalInterface = lib.mkForce "eth1";
+        panhandler.lanInterface = "eth2";
+        # gateway.nix kept eth0 static when it was the hardcoded LAN; keep dhcpcd off port 68.
+        networking.interfaces.eth0.useDHCP = false;
+        panhandler.wanInterfaces = [ "eth1" ];
         networking.firewall.interfaces.eth2 = {
           allowedTCPPorts = [ 53 ];
           allowedUDPPorts = [ 53 ];
@@ -140,18 +142,34 @@ pkgs.testers.runNixOSTest {
           after = [ "persist.mount" ];
         };
       }
-      (lib.optionalAttrs (egressModule != null) {
-        panhandler.egress = {
-          lanInterface = "eth2";
-          wanInterface = "eth1";
-        };
-        services.tor.settings.DisableNetwork = true;
-      })
+      (lib.optionalAttrs (egressModule != null) (
+        let
+          # The connection UUID on the uplink comes from /run/test-net; absent = no NM connection.
+          policyPath = lib.mkForce (
+            with pkgs;
+            [
+              (writeShellScriptBin "nmcli" "cat /run/test-net 2>/dev/null || true")
+              (writeShellScriptBin "ip" "echo 'default via 192.0.2.2 dev eth1 proto dhcp metric 600'")
+              gnused
+              gnugrep
+              gawk
+              coreutils
+            ]
+          );
+        in
+        {
+          services.tor.settings.DisableNetwork = true;
+          systemd.services.ph-egress-direct.path = policyPath;
+          systemd.services.ph-egress-tor.path = policyPath;
+          systemd.services.ph-egress-auto.path = policyPath;
+        }
+      ))
       (lib.optionalAttrs (portalModule != null) {
         systemd.services.ph-portal-bypass.path = lib.mkForce (
           with pkgs;
           [
             (writeShellScriptBin "nmcli" "echo 192.0.2.2")
+            (writeShellScriptBin "ip" "echo 'default via 192.0.2.2 dev eth1 proto dhcp metric 600'")
             nftables
             conntrack-tools
             gnused
@@ -328,6 +346,17 @@ pkgs.testers.runNixOSTest {
         pi.reboot()
         pi.wait_for_unit("multi-user.target")
         pi.succeed("grep -qx direct /run/ph-egress/mode")
+        assert client.succeed("curl -fsS --max-time 3 http://192.0.2.2:8000/").strip() == "CLEARNET"
+    with subtest("a learned per-network mode follows the uplink"):
+        hotel, tether, unknown = (f"{d * 8}-{d * 4}-{d * 4}-{d * 4}-{d * 12}" for d in "123")
+        pi.succeed(f"echo {hotel} > /run/test-net", "ph-egress tor")
+        pi.succeed(f"echo {tether} > /run/test-net", "ph-egress direct")
+        pi.succeed(f"grep -qx '{hotel} tor' /persist/ph-egress-policy", f"grep -qx '{tether} direct' /persist/ph-egress-policy")
+        pi.succeed("test $(stat -c %a /persist/ph-egress-policy) = 600")
+        pi.succeed(f"echo {hotel} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx tor /run/ph-egress/mode")
+        client.fail("curl -fsS --max-time 3 http://192.0.2.2:8000/")
+        pi.succeed(f"echo {unknown} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx tor /run/ph-egress/mode")
+        pi.succeed(f"echo {tether} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx direct /run/ph-egress/mode")
         assert client.succeed("curl -fsS --max-time 3 http://192.0.2.2:8000/").strip() == "CLEARNET"
   '';
 }

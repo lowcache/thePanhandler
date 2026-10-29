@@ -6,6 +6,45 @@
 }:
 let
   cfg = config.panhandler.egress;
+  lan = config.panhandler.lanInterface;
+  wans = builtins.concatStringsSep ", " (map (i: ''"${i}"'') config.panhandler.wanInterfaces);
+  wanRe = builtins.concatStringsSep "|" config.panhandler.wanInterfaces;
+  # Per-network policy: "<NM connection UUID> <mode>" lines. Inside LUKS: saved networks are a location trail.
+  policy = "/persist/ph-egress-policy";
+  # Sets $net to the connection UUID on the uplink holding the default route, or "".
+  currentNet = ''
+    wan=$(ip -4 route show default | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -n1)
+    net=""
+    if [[ $wan =~ ^(${wanRe})$ ]]; then net=$(nmcli -g GENERAL.CON-UUID device show "$wan" 2>/dev/null || true); fi
+    [[ $net =~ ^[0-9a-f-]{36}$ ]] || net=""
+    # A locked boot has /persist as a bare tmpfs-root directory: no policy to read or write.
+    [ "$(stat -c %d /persist)" != "$(stat -c %d /)" ] || net=""
+  '';
+  learn = pkgs.writeShellScript "ph-egress-learn" ''
+    set -eu
+    ${currentNet}
+    [ -n "$net" ] || exit 0
+    umask 077
+    { grep -sv "^$net " ${policy} || true; echo "$net $1"; } >${policy}.tmp
+    mv ${policy}.tmp ${policy}
+  '';
+  auto = pkgs.writeShellScript "ph-egress-auto" ''
+    set -eu
+    ${currentNet}
+    mode=""
+    if [ -n "$net" ] && [ -e ${policy} ]; then mode=$(awk -v n="$net" '$1 == n { m = $2 } END { print m }' ${policy}); fi
+    [ -n "$mode" ] || mode=${cfg.unknownNetwork}
+    if [ "$mode" = keep ] || [ "$(cat /run/ph-egress/mode 2>/dev/null)" = "$mode" ]; then exit 0; fi
+    exec ${applyMode} "$mode"
+  '';
+  policyPath = with pkgs; [
+    networkmanager
+    iproute2
+    gnused
+    gnugrep
+    gawk
+    coreutils
+  ];
   torUid = toString config.ids.uids.tor;
   clockUid = toString config.ids.uids.systemd-timesync;
   transport = "meta mark & 0xff0000 == 0x80000";
@@ -24,7 +63,7 @@ let
     fi
     case "$mode" in
       direct) elements="" ;;
-      tor) elements='add element inet ph-egress tor_interfaces { "${cfg.lanInterface}", "${cfg.wanInterface}" }' ;;
+      tor) elements='add element inet ph-egress tor_interfaces { "${lan}", ${wans} }' ;;
       *) echo "invalid saved egress mode; keeping the Tor clamp" >&2; exit 1 ;;
     esac
     # /base/ph holds unlock state (tmpfiles: 0700); never loosen it.
@@ -49,14 +88,17 @@ let
   '';
 in
 {
+  imports = [ ./interfaces.nix ];
+
   options.panhandler.egress = {
-    lanInterface = lib.mkOption {
-      type = lib.types.str;
-      default = "eth0";
-    };
-    wanInterface = lib.mkOption {
-      type = lib.types.str;
-      default = "wlan0";
+    unknownNetwork = lib.mkOption {
+      type = lib.types.enum [
+        "keep"
+        "direct"
+        "tor"
+      ];
+      default = "keep";
+      description = "Egress applied on joining a network with no learned mode.";
     };
     gateway = lib.mkOption {
       type = lib.types.str;
@@ -87,22 +129,50 @@ in
         ExecReload = lib.mkAfter [ "${applyMode} restore" ];
       };
     };
+    # A deliberate choice (UI, phone, ph-egress) is also remembered for the current network.
     systemd.services.ph-egress-direct = {
       requires = [ "nftables.service" ];
       after = [ "nftables.service" ];
+      path = policyPath;
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${applyMode} direct";
+        ExecStartPost = "${learn} direct";
       };
     };
     systemd.services.ph-egress-tor = {
       requires = [ "nftables.service" ];
       after = [ "nftables.service" ];
+      path = policyPath;
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${applyMode} tor";
+        ExecStartPost = "${learn} tor";
       };
     };
+    # Re-applies the learned mode when the default-route uplink changes, and once after unlock.
+    systemd.services.ph-egress-auto = {
+      wantedBy = [ "ph-persist.target" ];
+      requires = [ "nftables.service" ];
+      after = [
+        "nftables.service"
+        "persist.mount"
+      ];
+      path = policyPath;
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = auto;
+      };
+    };
+    networking.networkmanager.dispatcherScripts = [
+      {
+        source = pkgs.writeShellScript "ph-egress-on-uplink" ''
+          if [[ $1 =~ ^(${wanRe})$ ]] && { [ "$2" = up ] || [ "$2" = down ]; }; then
+            ${config.systemd.package}/bin/systemctl start --no-block ph-egress-auto.service
+          fi
+        '';
+      }
+    ];
     security.polkit.extraConfig = ''
       polkit.addRule(function(action, subject) {
         if (action.id == "org.freedesktop.systemd1.manage-units"
@@ -155,26 +225,26 @@ in
         MemoryMax = "192M";
       };
     };
-    networking.firewall.interfaces.${cfg.lanInterface}.allowedTCPPorts = [ 9040 ];
+    networking.firewall.interfaces.${lan}.allowedTCPPorts = [ 9040 ];
     networking.nftables.tables.ph-egress = {
       family = "inet";
       content = ''
         # Start/reload clamped; the post-load hook restores the persisted choice.
-        set tor_interfaces { type ifname; elements = { "${cfg.lanInterface}", "${cfg.wanInterface}" }; }
+        set tor_interfaces { type ifname; elements = { "${lan}", ${wans} }; }
         set portal_clients { type ipv4_addr; flags timeout; timeout 600s; }
         set portal_dns { type ipv4_addr; flags timeout; timeout 600s; }
         chain prerouting {
           type nat hook prerouting priority dstnat - 5; policy accept;
-          iifname "${cfg.lanInterface}" ip saddr @portal_clients return
-          iifname "${cfg.lanInterface}" meta nfproto ipv4 udp dport 53 redirect to :53
-          iifname "${cfg.lanInterface}" meta nfproto ipv4 tcp dport 53 redirect to :53
-          iifname "${cfg.lanInterface}" ip daddr ${cfg.gateway} return
+          iifname "${lan}" ip saddr @portal_clients return
+          iifname "${lan}" meta nfproto ipv4 udp dport 53 redirect to :53
+          iifname "${lan}" meta nfproto ipv4 tcp dport 53 redirect to :53
+          iifname "${lan}" ip daddr ${cfg.gateway} return
           iifname != @tor_interfaces return
-          iifname "${cfg.lanInterface}" meta nfproto ipv4 meta l4proto tcp redirect to :9040
+          iifname "${lan}" meta nfproto ipv4 meta l4proto tcp redirect to :9040
         }
         chain output_nat {
           type nat hook output priority dstnat - 5; policy accept;
-          oifname != "${cfg.wanInterface}" return
+          oifname != { ${wans} } return
           oifname != @tor_interfaces return
           meta skuid ${torUid} return
           ${transport} return
@@ -187,17 +257,17 @@ in
           type filter hook forward priority filter - 5; policy drop;
           iifname != @tor_interfaces accept
           # Every packet is checked, including already-established portal connections.
-          iifname "${cfg.lanInterface}" oifname "${cfg.wanInterface}" ip saddr @portal_clients tcp dport { 80, 443 } accept
-          iifname "${cfg.lanInterface}" oifname "${cfg.wanInterface}" ip saddr @portal_clients ip daddr @portal_dns udp dport 53 accept
-          iifname "${cfg.lanInterface}" oifname "${cfg.wanInterface}" ip saddr @portal_clients ip daddr @portal_dns tcp dport 53 accept
-          iifname "${cfg.wanInterface}" oifname "${cfg.lanInterface}" ip daddr @portal_clients ct state established,related accept
+          iifname "${lan}" oifname { ${wans} } ip saddr @portal_clients tcp dport { 80, 443 } accept
+          iifname "${lan}" oifname { ${wans} } ip saddr @portal_clients ip daddr @portal_dns udp dport 53 accept
+          iifname "${lan}" oifname { ${wans} } ip saddr @portal_clients ip daddr @portal_dns tcp dport 53 accept
+          iifname { ${wans} } oifname "${lan}" ip daddr @portal_clients ct state established,related accept
         }
         chain output {
           type filter hook output priority filter - 5; policy accept;
           # Local DNAT still carries the original output interface at this hook.
           ct status dnat ip daddr 127.0.0.1 tcp dport 9040 accept
           ct status dnat ip daddr 127.0.0.1 udp dport 9053 accept
-          oifname != "${cfg.wanInterface}" return
+          oifname != { ${wans} } return
           oifname != @tor_interfaces return
           meta skuid ${torUid} meta l4proto tcp accept
           ${transport} accept

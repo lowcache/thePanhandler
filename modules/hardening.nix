@@ -2,15 +2,10 @@
 # Data-plane cost is zero: forwarding stays in the kernel, so nothing here touches throughput.
 { config, lib, ... }:
 let
-  cfg = config.panhandler.hardening;
-  wan = cfg.wanInterface;
+  wans = builtins.concatStringsSep ", " (map (i: ''"${i}"'') config.panhandler.wanInterfaces);
 in
 {
-  options.panhandler.hardening.wanInterface = lib.mkOption {
-    type = lib.types.str;
-    default = "wlan0";
-    description = "Hostile uplink; echo requests arriving here are dropped.";
-  };
+  imports = [ ./interfaces.nix ];
 
   config = {
     boot.kernel.sysctl = {
@@ -36,8 +31,8 @@ in
       content = ''
         chain input {
           type filter hook input priority filter - 1; policy accept;
-          iifname "${wan}" icmp type echo-request drop
-          iifname "${wan}" icmpv6 type echo-request drop
+          iifname { ${wans} } icmp type echo-request drop
+          iifname { ${wans} } icmpv6 type echo-request drop
         }
       '';
     };

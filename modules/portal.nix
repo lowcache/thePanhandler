@@ -1,8 +1,8 @@
 { config, pkgs, ... }:
 let
   unit = "ph-portal-bypass";
-  lan = config.panhandler.egress.lanInterface;
-  wan = config.panhandler.egress.wanInterface;
+  lan = config.panhandler.lanInterface;
+  wanRe = builtins.concatStringsSep "|" config.panhandler.wanInterfaces;
   gw = config.panhandler.egress.gateway;
   # Captive portals block DoH pre-auth, so blocky can't resolve the portal for the cable client.
   # While this unit runs, client DNS to the gateway is DNAT'd to the hotel's own resolver.
@@ -10,7 +10,10 @@ let
     set -eu
     client=$(cat /run/panhandler-webd/portal-client)
     [[ $client =~ ^10\.73\.0\.([0-9]{1,3})$ ]] && [ "''${BASH_REMATCH[1]}" -ge 2 ] && [ "''${BASH_REMATCH[1]}" -le 254 ] || exit 1
-    dns=$(nmcli -g IP4.DNS device show ${wan} | sed 's/ | /\n/g' | head -n1)
+    # The uplink holding the default route (wlan0 or usb0) owns the portal and its resolver.
+    wan=$(ip -4 route show default | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -n1)
+    [[ $wan =~ ^(${wanRe})$ ]] || { echo "default route is not on an uplink: '$wan'" >&2; exit 1; }
+    dns=$(nmcli -g IP4.DNS device show "$wan" | sed 's/ | /\n/g' | head -n1)
     # DHCP-supplied (hostile) input: accept only a bare IPv4 literal.
     [[ $dns =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "no IPv4 uplink resolver: '$dns'" >&2; exit 1; }
     nft -f - <<EOF
@@ -44,6 +47,8 @@ let
   '';
 in
 {
+  imports = [ ./interfaces.nix ];
+
   # Started/stopped by panhandler-webd ("Open portal"); the 10 min cap is the unit expiring,
   # so a crash or a forgotten tab can't leave plaintext DNS on.
   systemd.services.${unit} = {
@@ -52,6 +57,7 @@ in
     requires = [ "nftables.service" ];
     path = with pkgs; [
       networkmanager
+      iproute2
       nftables
       conntrack-tools
       gnused

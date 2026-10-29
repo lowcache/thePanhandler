@@ -56,6 +56,17 @@ in
         };
         ipv4.method = "auto";
       };
+      # Phone USB tether (RNDIS). Works while locked; the wired metric (100) beats Wi-Fi (600),
+      # so plugging it in moves the default route and every uplink rule follows (interfaces.nix).
+      profiles.ph-tether = {
+        connection = {
+          id = "ph-tether";
+          type = "ethernet";
+          interface-name = "usb0";
+        };
+        ipv4.method = "auto";
+        ipv6.method = "auto";
+      };
     };
   };
   # No modem on this board; the NM module defaults it on.
