@@ -82,10 +82,13 @@ generations:
 ssh:
 	ssh $(subst BatchMode=yes,BatchMode=no,$(SSHOPTS)) $(PI)
 
-## health: uplink, connectivity, failed units, uptime
+## health: uplink, route, connectivity, egress, DNS, failed units, uptime
 health:
 	$(SSH) 'nmcli -t -f DEVICE,STATE,CONNECTION device | grep -v unmanaged; \
+	  echo "route: $$(ip -4 route show default | head -1)"; \
 	  echo "connectivity: $$(nmcli -g CONNECTIVITY general)"; \
+	  echo "egress: $$(ph-egress status) (tor $$(systemctl is-active tor))"; \
+	  echo "dns: blocky $$(systemctl is-active blocky)"; \
 	  systemctl --failed --no-legend; awk '\''{printf "up %.1f h\n", $$1/3600}'\'' /proc/uptime'
 
 # Laptop side. pi-diag: fixed address on the cable, no default route, so the Pi is reachable at
