@@ -41,8 +41,8 @@
             panhandler.managementPeers = {
               volnix = "100.66.249.117";
               volnix-v6 = "fd7a:115c:a1e0::9b3b:f976";
-              phone = "100.101.229.9";
-              phone-v6 = "fd7a:115c:a1e0::3801:e5aa";
+              phone = "100.65.161.34";
+              phone-v6 = "fd7a:115c:a1e0::531:a123";
             };
           }
           nixos-hardware.nixosModules.raspberry-pi-3

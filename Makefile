@@ -13,7 +13,7 @@ PI_tailnet := lowcache@100.81.123.86
 PI      := $(PI_$(VIA))
 MODE    ?= switch
 CHECK   ?= hardening
-export TMPDIR ?= $(HOME)/Storage/tmp
+export TMPDIR ?= /persist/storage/tmp
 OUT     := $(TMPDIR)/ph-build
 # Pinned host key: one key, two addresses.
 SSHOPTS := -o HostKeyAlias=100.81.123.86 -o ConnectTimeout=6 -o BatchMode=yes
