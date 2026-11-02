@@ -86,14 +86,9 @@ generations:
 ssh:
 	ssh $(subst BatchMode=yes,BatchMode=no,$(SSHOPTS)) $(PI)
 
-## health: uplink, route, connectivity, egress, DNS, failed units, uptime
+## health: layer-by-layer diagnosis: cable, clock, persist, uplink, portal, egress/Tor, DNS, tailnet
 health:
-	$(SSH) 'nmcli -t -f DEVICE,STATE,CONNECTION device | grep -v unmanaged; \
-	  echo "route: $$(ip -4 route show default | head -1)"; \
-	  echo "connectivity: $$(nmcli -g CONNECTIVITY general)"; \
-	  echo "egress: $$(ph-egress status) (tor $$(systemctl is-active tor))"; \
-	  echo "dns: blocky $$(systemctl is-active blocky)"; \
-	  systemctl --failed --no-legend; awk '\''{printf "up %.1f h\n", $$1/3600}'\'' /proc/uptime'
+	tools/ph-doctor.sh $(SSHOPTS) $(PI)
 
 # Laptop side. pi-diag: fixed address on the cable, no default route, so the Pi is reachable at
 # 10.73.0.1 while the laptop's internet comes from elsewhere (pi-share going down stops the bubble).
@@ -110,6 +105,10 @@ cable-debug:
 cable-share:
 	nmcli con down pi-diag 2>/dev/null || true
 	nmcli con up pi-share
+
+## portal: sign the Pi into a captive portal: a throwaway Brave over an SSH tunnel via the Pi
+portal:
+	tools/ph-portal.sh $(SSHOPTS) $(PI)
 
 ## bench: throughput laptop → Pi → Cloudflare, plus Pi CPU
 bench:
@@ -151,5 +150,5 @@ verify-card:
 	nix run .#verify-card -- $(DEVICE)
 
 .PHONY: help build image check checks fmt diff deploy rollback generations ssh health bench \
-	cable-debug cable-share \
+	cable-debug cable-share portal \
 	status unlock rekey log provision-keys provision-card verify-card

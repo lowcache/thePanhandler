@@ -34,6 +34,14 @@ say "waiting for the Pi on the cable (boot takes ~1-2 min)"
 # Probe with the passphrase-less unlock key's forced `status`, not a login.
 wait_for 240 bash -c '[ -n "$(nix run .#ph-unlock -- status --via cable 2>/dev/null)" ]' || die "Pi not reachable at $PI after 4 min (power/cable/ACT LED?)"
 
+# No RTC: the Pi boots months behind, and NTP is often blocked on hotel Wi-Fi. Tor won't bootstrap
+# on a skewed clock, so take the laptop's time before unlock starts it.
+skew=$(($(pi date +%s 2>/dev/null || date +%s) - $(date +%s)))
+if ((skew > 30 || skew < -30)); then
+  say "Pi clock ${skew}s off: setting it from the laptop"
+  pi "sudo -n date -u -s @$(date +%s)" >/dev/null || say "could not set the Pi clock (Tor may stall)"
+fi
+
 case "$(persist_state)" in
   unlocked) say "persist already unlocked" ;;
   locked)
@@ -54,7 +62,5 @@ if [ "${BUBBLE:-yes}" = yes ] && [ "$active" = pi-diag ]; then
   nmcli --wait 30 con up pi-share >/dev/null
 fi
 
-say "status"
-unlock status --via cable
-pi 'nmcli -t -f DEVICE,STATE,CONNECTION device | grep -v unmanaged; echo "connectivity: $(nmcli -g CONNECTIVITY general)"; tailscale status --self --peers=false 2>/dev/null | head -1; systemctl --failed --no-legend'
-if systemctl is-active --quiet vol-bubble.service; then say "bubble: on"; else say "bubble: off"; fi
+say "doctor"
+tools/ph-doctor.sh "${SSHOPTS[@]}" "$PI"
