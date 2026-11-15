@@ -41,6 +41,8 @@ var errProtected = errors.New("profile is protected")
 
 type NM struct {
 	directPeers  []string
+	inv          *Inventory
+	logs         *Logs
 	mutation     sync.Mutex
 	conn         *dbus.Conn
 	iface        string

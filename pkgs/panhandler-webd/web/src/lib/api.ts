@@ -203,3 +203,27 @@ export function formatSecurity(security: WifiSecurity): string {
       return security;
   }
 }
+
+// Downstream clients on the cable (dnsmasq leases + neighbor table).
+export interface Device {
+  mac: string;
+  ip: string;
+  hostname: string;
+  vendor: string; // 'randomized' for locally administered MACs
+  leaseExpires: string;
+  online: boolean;
+}
+
+export function fetchDevices(): Promise<Device[]> {
+  return request<Device[]>('/api/devices');
+}
+
+// One journal record from GET /api/logs (SSE, event "log").
+export interface LogEntry {
+  unit: string;
+  timestamp: string;
+  priority: 'emerg' | 'alert' | 'crit' | 'err' | 'warning' | 'notice' | 'info' | 'debug';
+  message: string;
+}
+
+export const LOGS_URL = '/api/logs';

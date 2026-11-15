@@ -11,8 +11,10 @@
     type WifiStatus,
   } from './lib/api';
   import Header from './lib/components/Header.svelte';
+  import DeviceTable from './lib/components/DeviceTable.svelte';
   import EgressControl from './lib/components/EgressControl.svelte';
   import JoinDialog from './lib/components/JoinDialog.svelte';
+  import LogPane from './lib/components/LogPane.svelte';
   import PortalBanner from './lib/components/PortalBanner.svelte';
   import SavedList from './lib/components/SavedList.svelte';
   import ScanTable from './lib/components/ScanTable.svelte';
@@ -186,6 +188,9 @@
         onRefresh={() => loadScan(true)}
       />
     </div>
+
+    <DeviceTable />
+    <LogPane />
   </main>
 
   <JoinDialog

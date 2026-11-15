@@ -44,7 +44,16 @@ func ingressContext(ctx context.Context, c net.Conn) context.Context {
 }
 
 func (n *NM) canUseDirect(r *http.Request) bool {
-	if n == nil || r.Context().Value(ingressKey{}) != "tailscale0" {
+	return r.Context().Value(ingressKey{}) == "tailscale0" && n.isManagementPeer(r)
+}
+
+// canReadLogs: the cable, or a management peer over Tailscale. Logs carry SSIDs and hotel DHCP details.
+func (n *NM) canReadLogs(r *http.Request) bool {
+	return r.Context().Value(ingressKey{}) == "eth0" || n.canUseDirect(r)
+}
+
+func (n *NM) isManagementPeer(r *http.Request) bool {
+	if n == nil {
 		return false
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)

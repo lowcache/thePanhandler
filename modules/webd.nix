@@ -7,6 +7,19 @@
 let
   webd = pkgs.callPackage ../pkgs/panhandler-webd { };
   port = 8080;
+  # Only the prefix table reaches the Pi, not nmap.
+  oui = pkgs.runCommand "nmap-mac-prefixes" { } "cp ${pkgs.nmap}/share/nmap/nmap-mac-prefixes $out";
+  flags = lib.cli.toCommandLineShellGNU { } {
+    listen-devs = "eth0,tailscale0";
+    inherit port;
+    allowed-hosts = lib.concatStringsSep "," config.panhandler.webd.allowedHostnames;
+    direct-peers = lib.concatStringsSep "," (lib.attrValues config.panhandler.managementPeers);
+    leases = "/var/lib/dnsmasq/dnsmasq.leases";
+    lan = "eth0";
+    inherit oui;
+    journalctl = "${config.systemd.package}/bin/journalctl";
+    log-units = lib.concatStringsSep "," config.panhandler.webd.logUnits;
+  };
 in
 {
   options.panhandler.managementPeers = lib.mkOption {
@@ -18,6 +31,17 @@ in
     type = lib.types.listOf lib.types.str;
     default = [ ];
     description = "Exact additional hostnames permitted by the management HTTP server.";
+  };
+  options.panhandler.webd.logUnits = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [
+      "panhandler-webd.service"
+      "NetworkManager.service"
+      "dnsmasq.service"
+      "blocky.service"
+      "ph-uplink-probe.service"
+    ];
+    description = "Units the web UI log view follows (cable or management peers only).";
   };
   config = {
     # Static user, not DynamicUser: polkit's isInGroup resolves groups via NSS, and the NM module
@@ -36,9 +60,11 @@ in
       requires = [ "NetworkManager.service" ];
       serviceConfig = {
         # Binds per-device (SO_BINDTODEVICE) to the trusted side only; refuses wlan0.
-        ExecStart = "${lib.getExe webd} --listen-devs eth0,tailscale0 --port ${toString port} --allowed-hosts ${lib.escapeShellArg (lib.concatStringsSep "," config.panhandler.webd.allowedHostnames)} --direct-peers ${lib.escapeShellArg (lib.concatStringsSep "," (lib.attrValues config.panhandler.managementPeers))}";
+        ExecStart = "${lib.getExe webd} ${flags}";
         User = "panhandler-webd";
         Group = "panhandler-webd";
+        # Read-only journal access for the log view.
+        SupplementaryGroups = [ "systemd-journal" ];
         Restart = "on-failure";
         RestartSec = 5;
         UMask = "0077";
