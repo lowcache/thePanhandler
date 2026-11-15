@@ -58,6 +58,22 @@ def notify(rec, reason):
         print("termux-notification timed out", file=sys.stderr, flush=True)
 
 
+VERDICTS = {"open", "portal", "dead", "unknown"}
+STAMP = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+UPLINK_TEXT = {"open": "uplink open", "portal": "captive portal: sign in through the Pi (make portal)",
+               "dead": "uplink dead", "unknown": "uplink unknown"}
+
+
+def notify_uplink(rec):
+    # Usually delivered late: a portal takes the tailnet down with it, so "at" is when it happened.
+    body = f"{UPLINK_TEXT[rec['verdict']]} (was {rec['prev']}) at {rec['at']}"
+    try:
+        subprocess.run(["termux-notification", "--id", "panhandler-uplink", "--title", "Panhandler uplink",
+                        "--content", body], check=False, timeout=15)
+    except subprocess.TimeoutExpired:
+        print("termux-notification timed out", file=sys.stderr, flush=True)
+
+
 class H(BaseHTTPRequestHandler):
     def reply(self, code, obj):
         data = json.dumps(obj).encode()
@@ -118,6 +134,13 @@ class H(BaseHTTPRequestHandler):
             if new_boot or rec.get("failed_unlocks"):
                 notify(rec, reason)
             return self.reply(200, {"lockdown": reason})
+        if self.path == "/uplink" and self.allowed("pi"):
+            rec = self.body()
+            if set(rec) != {"verdict", "prev", "at"} or rec["verdict"] not in VERDICTS \
+                    or rec["prev"] not in VERDICTS or not isinstance(rec["at"], str) or not STAMP.match(rec["at"]):
+                raise ValueError("bad uplink notice")
+            notify_uplink(rec)
+            return self.reply(200, {})
         if self.path == "/share" and self.client() == "127.0.0.1":
             with lock:
                 share["value"], share["at"] = self.body()["share"], time.time()

@@ -56,6 +56,12 @@ case "$probe" in
   ?*) bad internet "raw HTTP probe got an unexpected page (portal?), NM $conn" ;;
   *) bad internet "NM $conn, raw HTTP probe got nothing: the uplink itself is dead" ;;
 esac
+# The Pi's own uplink probe (modules/probe.nix), with its recent verdict changes.
+if [ -r /run/ph-uplink/state.json ]; then
+  v=$(jq -r '"\(.verdict) (checked \(.checkedAt))"' /run/ph-uplink/state.json)
+  case "$v" in open*) ok probe "$v" ;; *) bad probe "$v" ;; esac
+  tail -n 3 /run/ph-uplink/history 2>/dev/null | sed 's/^/          /'
+fi
 [ "$(systemctl is-active ph-portal-bypass)" = active ] && warn portal "bypass ON: cable DNS goes to the hotel resolver (auto-off in 10 min)"
 
 mode=$(cat /run/ph-egress/mode 2>/dev/null)

@@ -19,6 +19,9 @@
 
   networking.hostName = "panhandler";
 
+  # Verdict changes (open / portal / dead) to the same phone listener; no SSID in the notice.
+  panhandler.probe.noticeUrl = "http://${config.panhandler.managementPeers.phone}:8463/uplink";
+
   panhandler.spine = {
     # Phone boot-log listener (phone/listener.py) on the phone's tailnet address.
     checkinUrl = "http://${config.panhandler.managementPeers.phone}:8463/checkin";

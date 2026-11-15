@@ -4,6 +4,17 @@ Notable changes, newest first. Dates are commit dates.
 
 ## Unreleased
 
+### 2026-11-15: uplink truth (burned in across several hotels since 2026-11-02)
+- Portal detection no longer trusts NetworkManager: `ph-uplink-probe` fetches plain-HTTP pages
+  portals don't allowlist and reports open, portal (with the captured login URL) or dead. A portal
+  that skips one answer stays a portal until a second silent run. The web UI banner and the bypass
+  follow the probe, so allowlist-faking portals (Hilton ElevenOS) show up.
+- Clock without NTP: `ph-clock-https` steps the clock forward from two agreeing HTTPS Date headers.
+- Wi-Fi MAC per saved network, not per brand; the NM check URL blends in with Android's.
+- Unknown networks start in Direct and the UI says so; known networks keep their learned mode.
+- The USB tether is the last-resort uplink (route metric 700; Wi-Fi 600).
+- The Pi resolves through blocky, with only `ts.net` forwarded to MagicDNS.
+
 ## v1.0 — 2026-10-29: the spine
 
 v1 is the daily-driven gateway: every item in the RISKS.md §3 definition of done has hardware

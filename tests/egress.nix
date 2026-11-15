@@ -81,6 +81,11 @@ pkgs.testers.runNixOSTest {
           uid = config.ids.uids.systemd-timesync;
           group = "nogroup";
         };
+        users.users.egress-https-clock = {
+          isSystemUser = true;
+          uid = config.panhandler.clockUid;
+          group = "nogroup";
+        };
         virtualisation.vlans = [
           1
           2
@@ -303,6 +308,16 @@ pkgs.testers.runNixOSTest {
         pi.succeed("curl -fsS --max-time 3 http://192.0.2.2/ | grep -qx PORTAL")
         pi.succeed("dig +short +time=1 +tries=1 @192.0.2.2 example.com | grep -qx 198.18.0.2")
         pi.succeed("systemd-run --wait --pipe --uid=egress-clock -- dig +short +time=1 +tries=1 @192.0.2.2 example.com | grep -qx 198.18.0.2")
+        # The HTTPS clock uid: direct DNS and 443 only; other ports and uids still go to the proxy.
+        # hostile:443 is the portal echo server: a direct connection gets its own request back.
+        # The echo never closes, so curl times out; only the echoed text matters (pipefail).
+        pi.succeed("{ systemd-run --wait --pipe --uid=egress-https-clock -- curl -s --http0.9 --max-time 2 http://192.0.2.2:443/ || true; } | grep -q 'GET / HTTP'")
+        pi.succeed("systemd-run --wait --pipe --uid=egress-https-clock -- dig +short +time=1 +tries=1 @192.0.2.2 example.com | grep -qx 198.18.0.2")
+        out = pi.succeed("systemd-run --wait --pipe --uid=nobody -- curl -fsS --max-time 3 http://192.0.2.2:443/")
+        assert "PROXY" in out and "GET /" not in out, out
+        out = pi.succeed("systemd-run --wait --pipe --uid=egress-https-clock -- curl -fsS --max-time 3 http://192.0.2.2:8000/")
+        assert "PROXY" in out and "CLEARNET" not in out, out
+        pi.fail("systemd-run --wait --pipe --uid=egress-https-clock -- python3 ${udpProbe} 192.0.2.2 123")
         pi.succeed("python3 ${udpProbe} 192.0.2.2 67 0 68")
         pi.fail("python3 ${udpProbe} 192.0.2.2 67")
     with subtest("proxy loss stays closed"):
@@ -355,7 +370,8 @@ pkgs.testers.runNixOSTest {
         pi.succeed("test $(stat -c %a /persist/ph-egress-policy) = 600")
         pi.succeed(f"echo {hotel} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx tor /run/ph-egress/mode")
         client.fail("curl -fsS --max-time 3 http://192.0.2.2:8000/")
-        pi.succeed(f"echo {unknown} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx tor /run/ph-egress/mode")
+        # A never-seen network gets the default (direct), not whatever the last network had.
+        pi.succeed(f"echo {unknown} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx direct /run/ph-egress/mode")
         pi.succeed(f"echo {tether} > /run/test-net", "systemctl start ph-egress-auto.service", "grep -qx direct /run/ph-egress/mode")
         assert client.succeed("curl -fsS --max-time 3 http://192.0.2.2:8000/").strip() == "CLEARNET"
         pi.succeed(f"echo '{unknown} torr' >> /persist/ph-egress-policy", f"echo {unknown} > /run/test-net")

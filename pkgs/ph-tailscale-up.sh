@@ -5,10 +5,13 @@ for _ in $(seq 30); do
   [ "$s" != NoState ] && break
   sleep 1
 done
+# Every start, both identities: the Pi resolves through blocky (gateway.nix), so MagicDNS must not
+# take over /etc/resolv.conf. Prefs persist in state, so an existing login keeps this too.
+tailscale set --accept-dns=false || true
 [ "$s" = NeedsLogin ] || exit 0
 
 if mountpoint -q /persist; then key=$MAIN_KEY host=$MAIN_HOST; else key=$STATE/ts-locked-authkey host=$LOCKED_HOST; fi
 if [ ! -s "$key" ]; then echo "no authkey for $host; staying logged out" >&2; exit 0; fi
-tailscale up --auth-key="file:$key" --hostname="$host"
+tailscale up --auth-key="file:$key" --hostname="$host" --accept-dns=false
 # The locked key is single-use and now spent; don't leave it in /base.
 if [ "$key" = "$STATE/ts-locked-authkey" ]; then rm -f "$key"; fi

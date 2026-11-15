@@ -58,6 +58,8 @@
           ./modules/egress.nix
           ./modules/webd.nix
           ./modules/portal.nix
+          ./modules/probe.nix
+          ./modules/clock.nix
           ./modules/hardening.nix
           ./modules/machine-id.nix
         ];
@@ -150,6 +152,12 @@
         gatewayModule = ./modules/gateway.nix;
         egressModule = ./modules/egress.nix;
         portalModule = ./modules/portal.nix;
+      };
+
+      checks.x86_64-linux.uplink = import ./tests/uplink.nix {
+        pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        probeModule = ./modules/probe.nix;
+        clockModule = ./modules/clock.nix;
       };
 
       checks.x86_64-linux.webd =

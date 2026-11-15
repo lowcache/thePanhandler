@@ -212,7 +212,9 @@ constant, always-reachable node**. Therefore:
 
 - **Primary egress = phone tether.** Uplink is cellular → egress is the trusted
   carrier; no portal, no hostile-LAN exposure; kill-switch = fail-closed if tether
-  drops.
+  drops. *Superseded 2026-11-02 (user): the USB tether is the last-resort uplink
+  (route metric 700 > Wi-Fi 600); it wins only while Wi-Fi is down or lacks global
+  connectivity.*
 - **Hotel-Wi-Fi egress, two selectable profiles:**
   - **phone-exit** — Pi on hotel Wi-Fi, egress via the phone's Tailscale **exit
     node** (confirmed available on the S26 Ultra). Fast, trusted-carrier IP,

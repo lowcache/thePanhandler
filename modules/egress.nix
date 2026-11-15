@@ -10,10 +10,12 @@ let
   wans = builtins.concatStringsSep ", " (map (i: ''"${i}"'') config.panhandler.wanInterfaces);
   torUid = toString config.ids.uids.tor;
   clockUid = toString config.ids.uids.systemd-timesync;
+  httpsClockUid = toString config.panhandler.clockUid;
   transport = "meta mark & 0xff0000 == 0x80000";
   bootstrap = ''
-    meta skuid { 0, ${clockUid} } udp dport 53 return
+    meta skuid { 0, ${clockUid}, ${httpsClockUid} } udp dport 53 return
     meta skuid 0 tcp dport 80 return
+    meta skuid ${httpsClockUid} tcp dport 443 return
   '';
   wanRe = builtins.concatStringsSep "|" config.panhandler.wanInterfaces;
   # Per-network policy: "<NM connection UUID> <mode>" lines. Inside LUKS: saved networks are a location trail.
@@ -74,8 +76,10 @@ let
   auto = pkgs.writeShellScript "ph-egress-auto" ''
     set -eu
     ${currentNet}
+    # No connection identity (locked, or no uplink route) is not a new network: keep the current mode.
+    [ -n "$net" ] || exit 0
     mode=""
-    if [ -n "$net" ] && [ -e ${policy} ]; then mode=$(awk -v n="$net" '$1 == n { m = $2 } END { print m }' ${policy}); fi
+    if [ -e ${policy} ]; then mode=$(awk -v n="$net" '$1 == n { m = $2 } END { print m }' ${policy}); fi
     [ -n "$mode" ] || mode=${cfg.unknownNetwork}
     # A corrupt entry fails closed.
     case $mode in direct | tor | keep) ;; *) mode=tor ;; esac
@@ -102,7 +106,8 @@ in
         "direct"
         "tor"
       ];
-      default = "keep";
+      # "keep" silently carried Tor onto a new network (Hilton, 2026-11-02).
+      default = "direct";
       description = "Egress applied on joining a network with no learned mode.";
     };
     gateway = lib.mkOption {
@@ -251,7 +256,7 @@ in
           oifname != @tor_interfaces return
           meta skuid ${torUid} return
           ${transport} return
-          # Root/NM portal probes and time-sync DNS must work before Tor/clock bootstrap.
+          # Root/NM portal probes, time-sync DNS and the HTTPS clock must work before Tor/clock bootstrap.
           ${bootstrap}
           meta nfproto ipv4 udp dport 53 redirect to :9053
           meta nfproto ipv4 meta l4proto tcp redirect to :9040

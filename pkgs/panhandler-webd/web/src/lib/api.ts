@@ -32,6 +32,14 @@ export interface WifiStatus {
   connectivity: Connectivity;
   persist: PersistState;
   portalBypass: PortalBypass;
+  probe: UplinkProbe;
+}
+
+// The Pi's own probe (modules/probe.nix). Portals allowlist NM's check URL, so `connectivity` can lie.
+export interface UplinkProbe {
+  verdict: 'open' | 'portal' | 'dead' | 'unknown';
+  portalUrl: string;
+  checkedAt: string;
 }
 
 export interface PortalBypass {
@@ -39,8 +47,8 @@ export interface PortalBypass {
   secondsLeft: number;
 }
 
-// Plain-HTTP URL the hotel intercepts and redirects to its login page.
-export const PORTAL_PROBE_URL = 'http://nmcheck.gnome.org/check_network_status.txt';
+// Plain-HTTP page portals don't allowlist, used when the probe captured no portal URL.
+export const PORTAL_PROBE_URL = 'http://neverssl.com/';
 
 export interface ScanNetwork {
   ssid: string;

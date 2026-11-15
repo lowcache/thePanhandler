@@ -16,5 +16,11 @@
       ];
       description = "Hostile uplinks: NAT, Tor clamp, portal and echo-drop rules cover all of them.";
     };
+    clockUid = lib.mkOption {
+      type = lib.types.int;
+      # Static: the nftables ruleset names it numerically and is checked at build time.
+      default = 920;
+      description = "uid of ph-clock, the one non-root user allowed direct DNS + HTTPS in Tor mode (clock bootstrap).";
+    };
   };
 }

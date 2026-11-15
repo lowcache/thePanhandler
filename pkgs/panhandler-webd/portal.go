@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net"
+	"net/url"
 	"os"
 	"time"
 
@@ -15,7 +17,42 @@ const (
 	sdPath      = dbus.ObjectPath("/org/freedesktop/systemd1")
 	bypassUnit  = "ph-portal-bypass.service"
 	bypassLimit = 600 // seconds; matches RuntimeMaxSec in modules/portal.nix
+	probeUnit   = "ph-uplink-probe.service"
 )
+
+// probePath is the uplink probe's verdict (modules/probe.nix); a var so tests can point it elsewhere.
+var probePath = "/run/ph-uplink/state.json"
+
+// Probe is the uplink truth: NM's connectivity check is allowlisted by portals and can say "full".
+type Probe struct {
+	Verdict   string `json:"verdict"` // open | portal | dead | unknown
+	PortalURL string `json:"portalUrl"`
+	CheckedAt string `json:"checkedAt"`
+}
+
+func readProbe() Probe {
+	p := Probe{Verdict: "unknown"}
+	b, err := os.ReadFile(probePath)
+	if err != nil || json.Unmarshal(b, &p) != nil {
+		return Probe{Verdict: "unknown"}
+	}
+	switch p.Verdict {
+	case "open", "portal", "dead":
+	default:
+		p.Verdict = "unknown"
+	}
+	p.PortalURL = safePortalURL(p.PortalURL)
+	return p
+}
+
+// safePortalURL keeps a hotel-supplied URL only if it is plain http(s) with a host.
+func safePortalURL(s string) string {
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return ""
+	}
+	return u.String()
+}
 
 type Bypass struct {
 	Active      bool `json:"active"`
@@ -69,23 +106,22 @@ func (n *NM) SetBypass(on bool, remote string) error {
 	return n.conn.Object(sdDest, sdPath).Call(method, 0, bypassUnit, "replace").Store(&job)
 }
 
-// watchBypass ends the bypass as soon as the portal lets us through, so plaintext DNS
-// lasts seconds past login instead of NM's 300 s connectivity interval.
+// watchBypass ends the bypass as soon as the probe sees real pages, so plaintext DNS lasts seconds
+// past login. Not NM's verdict: portals allowlist its check URL, so it can say FULL before login.
 func (n *NM) watchBypass() {
 	for range time.Tick(5 * time.Second) {
 		if !n.Bypass().Active {
 			continue
 		}
-		var c uint32
-		if err := n.obj(nmPath).Call(nmDest+".CheckConnectivity", 0).Store(&c); err != nil {
-			log.Printf("portal: connectivity check: %v", err)
-			continue
+		var job dbus.ObjectPath
+		if err := n.conn.Object(sdDest, sdPath).Call(sdDest+".Manager.StartUnit", 0, probeUnit, "replace").Store(&job); err != nil {
+			log.Printf("portal: start probe: %v", err)
 		}
-		if c == 4 {
+		if readProbe().Verdict == "open" {
 			if err := n.SetBypass(false, ""); err != nil {
 				log.Printf("portal: stop bypass: %v", err)
 			} else {
-				log.Printf("portal: connectivity full, bypass ended")
+				log.Printf("portal: uplink open, bypass ended")
 			}
 		}
 	}

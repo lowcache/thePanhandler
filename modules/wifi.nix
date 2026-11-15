@@ -17,8 +17,9 @@ in
     ];
     # brcmfmac flaps under power save (4-way handshake timeout, reason=15) → 2 (off).
     wifi.powersave = false;
-    # Per-SSID random MAC, never the b8:27:eb Raspberry Pi OUI; stable via the key below.
-    wifi.macAddress = "stable-ssid";
+    # Per-profile random MAC (stable-id below), never the b8:27:eb Raspberry Pi OUI; stable via the key
+    # below. Per-SSID linked every "Hilton Honors" worldwide; forgetting a network now rotates its MAC.
+    wifi.macAddress = "stable";
     settings = {
       # No hostname over DHCP; DHCPv6 DUID per profile instead of from machine-id.
       # The send-hostname defaults are parsed as integers: `false` is silently ignored, so 0.
@@ -28,10 +29,15 @@ in
         "ipv6.dhcp-duid" = "stable-uuid";
       };
       keyfile.path = persistProfiles;
-      # Captive-portal detection (Connectivity = portal). Resolved via the uplink's own DNS,
-      # so it works pre-auth; blocky/DoH is for downstream clients only.
+      "connection-wifi" = {
+        match-device = "type:wifi";
+        "connection.stable-id" = "\${CONNECTION}";
+      };
+      # Looks like any Android phone, not "GNOME NetworkManager". Portals allowlist it, so it can
+      # report FULL behind one; the uplink probe (probe.nix) is the truth, this is NM's route penalty.
       connectivity = {
-        uri = "http://nmcheck.gnome.org/check_network_status.txt";
+        uri = "http://connectivitycheck.gstatic.com/generate_204";
+        response = "";
         interval = 300;
       };
     };
@@ -56,16 +62,22 @@ in
         };
         ipv4.method = "auto";
       };
-      # Phone USB tether (RNDIS). Works while locked; the wired metric (100) beats Wi-Fi (600),
-      # so plugging it in moves the default route and every uplink rule follows (interfaces.nix).
+      # Phone USB tether (RNDIS). Works while locked. Last resort: 700 loses to Wi-Fi (600) but beats
+      # Wi-Fi without global connectivity (+20000 NM penalty); every uplink rule follows (interfaces.nix).
       profiles.ph-tether = {
         connection = {
           id = "ph-tether";
           type = "ethernet";
           interface-name = "usb0";
         };
-        ipv4.method = "auto";
-        ipv6.method = "auto";
+        ipv4 = {
+          method = "auto";
+          route-metric = 700;
+        };
+        ipv6 = {
+          method = "auto";
+          route-metric = 700;
+        };
       };
     };
   };

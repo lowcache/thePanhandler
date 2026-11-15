@@ -85,6 +85,7 @@ type Status struct {
 	Connectivity string `json:"connectivity"`
 	Persist      string `json:"persist"`
 	PortalBypass Bypass `json:"portalBypass"`
+	Probe        Probe  `json:"probe"`
 }
 
 func NewNM(iface, persistDir, persistMount string) (*NM, error) {
@@ -246,7 +247,7 @@ var stateNames = map[uint32]string{
 var connectivityNames = map[uint32]string{0: "unknown", 1: "none", 2: "portal", 3: "limited", 4: "full"}
 
 func (n *NM) Status() (Status, error) {
-	st := Status{State: "unknown", Connectivity: "unknown", Persist: "locked", PortalBypass: n.Bypass()}
+	st := Status{State: "unknown", Connectivity: "unknown", Persist: "locked", PortalBypass: n.Bypass(), Probe: readProbe()}
 	if n.persistent() {
 		st.Persist = "unlocked"
 	}

@@ -56,7 +56,13 @@
     };
   });
 
-  const connectivity = $derived(localStatus?.connectivity ?? 'unknown');
+  // The Pi's probe outranks NM, whose check URL portals allowlist.
+  const probeView = { open: 'full', portal: 'portal', dead: 'none' } as const;
+  const connectivity = $derived(
+    (localStatus?.probe && localStatus.probe.verdict !== 'unknown' ? probeView[localStatus.probe.verdict] : undefined) ??
+      localStatus?.connectivity ??
+      'unknown',
+  );
   const isConnected = $derived(localStatus?.connected ?? false);
   const persistState = $derived(localStatus?.persist ?? 'unlocked');
 </script>

@@ -65,6 +65,11 @@ in
 
   boot.kernel.sysctl."net.ipv4.conf.all.forwarding" = true;
 
+  # The Pi resolves through blocky, not the uplink's DHCP DNS or MagicDNS forwarding. The few
+  # pre-auth lookups (uplink probe, HTTPS clock, portal bypass) ask the hotel resolver explicitly.
+  networking.networkmanager.dns = "none";
+  networking.nameservers = [ "127.0.0.1" ];
+
   # FULL comes from NM's plain-HTTP probe and can precede NTP. With no RTC the clock is months
   # behind until then, so TLS (DoH, list download) fails: restart blocky once more when time syncs.
   systemd.paths.blocky-on-timesync = {
@@ -102,7 +107,10 @@ in
   services.blocky = {
     enable = true;
     settings = {
-      ports.dns = "${gw}:53";
+      # 127.0.0.1: the Pi's own lookups too, so they never go to the hotel resolver in clear.
+      ports.dns = "127.0.0.1:53,${gw}:53";
+      # Tailnet names stay answerable after `--accept-dns=false` (unlock.nix).
+      conditional.mapping."ts.net" = "100.100.100.100";
       # Encrypted upstream (THREAT-MODEL A1: no cleartext DNS to the hotel resolver).
       upstreams.groups.default = [ "https://dns.quad9.net/dns-query" ];
       # Resolve the DoH host itself without a chicken-and-egg loop.

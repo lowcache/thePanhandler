@@ -8,7 +8,10 @@
   let left = $state(0);
 
   const bypass = $derived(status.portalBypass ?? { active: false, secondsLeft: 0 });
-  const show = $derived(status.connectivity === 'portal' || bypass.active);
+  const probe = $derived(status.probe ?? { verdict: 'unknown', portalUrl: '', checkedAt: '' });
+  const show = $derived(status.connectivity === 'portal' || probe.verdict === 'portal' || bypass.active);
+  // The URL the Pi was redirected to (validated server-side), else a page portals intercept.
+  const portalUrl = $derived(probe.portalUrl || PORTAL_PROBE_URL);
 
   // Resync the countdown on every status poll; tick locally in between.
   $effect(() => {
@@ -28,9 +31,9 @@
       await setPortalBypass(true);
       if (tab) {
         tab.opener = null;
-        tab.location.href = PORTAL_PROBE_URL;
+        tab.location.href = portalUrl;
       } else {
-        toast.info(`Popup blocked: open ${PORTAL_PROBE_URL} in a new tab`, 10000);
+        toast.info(`Popup blocked: open ${portalUrl} in a new tab`, 10000);
       }
     } catch (e) {
       tab?.close();
@@ -73,15 +76,20 @@
         {:else}
           <h2 class="banner-heading">Captive portal detected</h2>
           <p class="banner-text">
-            This network wants a login before it routes traffic. Opening the portal temporarily permits direct
-            HTTP/HTTPS and plaintext DNS for this cable client, for up to 10 minutes. Tor mode keeps other traffic blocked.
+            This network wants a login before it routes traffic{status.connectivity === 'full' ? ', even though it tells the Pi it is online' : ''}.
+            Opening the portal temporarily permits direct HTTP/HTTPS and plaintext DNS for this cable client, for up to
+            10 minutes. Tor mode keeps other traffic blocked.
+          </p>
+          <p class="banner-text">
+            Sign in from a browser routed through the Pi (laptop on <code>pi-share</code>), or the portal authorizes
+            that device instead. If that drops your session, run <code>make portal</code> on the laptop.
           </p>
         {/if}
       </div>
       <div class="banner-actions">
         {#if bypass.active}
           <button class="btn" onclick={endBypass} disabled={busy}>End bypass</button>
-          <a class="btn" href={PORTAL_PROBE_URL} target="_blank" rel="noopener noreferrer">Reopen portal</a>
+          <a class="btn" href={portalUrl} target="_blank" rel="noopener noreferrer">Reopen portal</a>
         {:else}
           <button class="btn btn-primary" onclick={openPortal} disabled={busy}>
             {busy ? 'Opening…' : 'Open portal'}

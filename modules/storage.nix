@@ -70,7 +70,11 @@ in
     # Periodic, not at shutdown: the Pi is usually just unplugged.
     services.ph-clock-save = {
       description = "Record the synced time in /base";
-      unitConfig.ConditionPathExists = "/run/systemd/timesync/synchronized";
+      # Synced by NTP, or verified by ph-clock-https (clock.nix) where NTP is blocked.
+      unitConfig.ConditionPathExists = [
+        "|/run/systemd/timesync/synchronized"
+        "|/run/ph-clock/https"
+      ];
       serviceConfig.Type = "oneshot";
       script = "touch /base/ph/clock";
     };
