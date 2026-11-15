@@ -1,4 +1,15 @@
+<script lang="ts" module>
+  export type View = 'wifi' | 'devices' | 'logs';
+</script>
+
 <script lang="ts">
+  let { view, onSelect }: { view: View; onSelect: (v: View) => void } = $props();
+
+  const tabs: { id: View; label: string }[] = [
+    { id: 'wifi', label: 'Wi-Fi' },
+    { id: 'devices', label: 'Devices' },
+    { id: 'logs', label: 'Logs' },
+  ];
 </script>
 
 <header class="app-header">
@@ -23,17 +34,17 @@
     </div>
 
     <nav class="nav-tabs" aria-label="Main Navigation">
-      <button type="button" class="tab-item active" aria-current="page">
-        Wi-Fi
-      </button>
-      <button type="button" class="tab-item disabled" disabled aria-disabled="true">
-        <span>Devices</span>
-        <span class="phase-tag">Phase B</span>
-      </button>
-      <button type="button" class="tab-item disabled" disabled aria-disabled="true">
-        <span>Logs</span>
-        <span class="phase-tag">Phase B</span>
-      </button>
+      {#each tabs as t (t.id)}
+        <button
+          type="button"
+          class="tab-item"
+          class:active={view === t.id}
+          aria-current={view === t.id ? 'page' : undefined}
+          onclick={() => onSelect(t.id)}
+        >
+          {t.label}
+        </button>
+      {/each}
     </nav>
   </div>
 </header>
@@ -107,23 +118,5 @@
   .tab-item.active {
     color: var(--color-text-primary);
     border-bottom-color: var(--color-accent);
-  }
-
-  .tab-item.disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
-
-  .phase-tag {
-    font-size: 0.625rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background-color: var(--color-raised);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-muted);
-    padding: 1px 4px;
-    border-radius: var(--radius-sm);
-    line-height: 1.2;
   }
 </style>

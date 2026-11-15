@@ -10,7 +10,7 @@
     type ScanNetwork,
     type WifiStatus,
   } from './lib/api';
-  import Header from './lib/components/Header.svelte';
+  import Header, { type View } from './lib/components/Header.svelte';
   import DeviceTable from './lib/components/DeviceTable.svelte';
   import EgressControl from './lib/components/EgressControl.svelte';
   import JoinDialog from './lib/components/JoinDialog.svelte';
@@ -21,6 +21,19 @@
   import Toasts from './lib/components/Toasts.svelte';
   import UplinkCard from './lib/components/UplinkCard.svelte';
   import { toast } from './lib/toast.svelte';
+
+  // The hash keeps the tab across reloads.
+  const views: View[] = ['wifi', 'devices', 'logs'];
+  const fromHash = (): View => {
+    const h = location.hash.slice(1) as View;
+    return views.includes(h) ? h : 'wifi';
+  };
+  let view = $state<View>(fromHash());
+
+  function selectView(v: View) {
+    view = v;
+    history.replaceState(null, '', v === 'wifi' ? location.pathname : `#${v}`);
+  }
 
   let wifiStatus = $state<WifiStatus | null>(null);
   let scanNetworks = $state<ScanNetwork[]>([]);
@@ -156,13 +169,14 @@
 </script>
 
 <div class="app-layout">
-  <Header />
+  <Header {view} onSelect={selectView} />
 
   {#if wifiStatus}
     <PortalBanner status={wifiStatus} />
   {/if}
 
-  <main class="main-content">
+  <!-- Views stay mounted (hidden) so a running log stream survives a tab switch. -->
+  <main class="main-content" hidden={view !== 'wifi'}>
     <EgressControl />
     <div class="top-row">
       <div class="top-col">
@@ -188,8 +202,13 @@
         onRefresh={() => loadScan(true)}
       />
     </div>
+  </main>
 
+  <main class="main-content" hidden={view !== 'devices'}>
     <DeviceTable />
+  </main>
+
+  <main class="main-content" hidden={view !== 'logs'}>
     <LogPane />
   </main>
 

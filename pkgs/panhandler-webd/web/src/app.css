@@ -354,3 +354,8 @@ dialog::backdrop {
     border-top-color: var(--color-accent);
   }
 }
+
+/* .main-content sets display: flex, which would beat the UA rule for [hidden]. */
+[hidden] {
+  display: none !important;
+}
