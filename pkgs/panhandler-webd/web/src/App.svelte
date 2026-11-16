@@ -11,6 +11,7 @@
     type WifiStatus,
   } from './lib/api';
   import Header, { type View } from './lib/components/Header.svelte';
+  import DeviceTable from './lib/components/DeviceTable.svelte';
   import EgressControl from './lib/components/EgressControl.svelte';
   import JoinDialog from './lib/components/JoinDialog.svelte';
   import LogPane from './lib/components/LogPane.svelte';
@@ -22,7 +23,7 @@
   import { toast } from './lib/toast.svelte';
 
   // The hash keeps the tab across reloads.
-  const views: View[] = ['wifi', 'logs'];
+  const views: View[] = ['wifi', 'devices', 'logs'];
   const fromHash = (): View => {
     const h = location.hash.slice(1) as View;
     return views.includes(h) ? h : 'wifi';
@@ -201,6 +202,10 @@
         onRefresh={() => loadScan(true)}
       />
     </div>
+  </main>
+
+  <main class="main-content" hidden={view !== 'devices'}>
+    <DeviceTable />
   </main>
 
   <main class="main-content" hidden={view !== 'logs'}>

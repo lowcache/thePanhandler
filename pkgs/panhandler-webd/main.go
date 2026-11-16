@@ -237,6 +237,32 @@ func routes(nm *NM, allowedNames ...string) http.Handler {
 		log.Printf("portal bypass enable=%v", req.Enable)
 		writeJSON(w, 200, nm.Bypass())
 	})
+	mux.HandleFunc("POST /api/bubble", func(w http.ResponseWriter, r *http.Request) {
+		if nm == nil || !nm.bubble.canReport(r) {
+			http.Error(w, "device reports come from volnix over Tailscale", http.StatusForbidden)
+			return
+		}
+		if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+			writeErr(w, errBadInput("Content-Type must be application/json"))
+			return
+		}
+		if err := nm.bubble.Accept(r.Body, time.Now()); err != nil {
+			writeErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /api/devices", func(w http.ResponseWriter, r *http.Request) {
+		if !nm.canReadLogs(r) {
+			http.Error(w, "the device list requires the cable or an approved management device over Tailscale", http.StatusForbidden)
+			return
+		}
+		if nm.bubble == nil {
+			writeJSON(w, 200, DeviceReport{Devices: []Device{}})
+			return
+		}
+		writeJSON(w, 200, nm.bubble.Report())
+	})
 	mux.HandleFunc("GET /api/logs", func(w http.ResponseWriter, r *http.Request) {
 		if !nm.canReadLogs(r) {
 			http.Error(w, "logs require the cable or an approved management device over Tailscale", http.StatusForbidden)
@@ -326,6 +352,8 @@ func main() {
 	persistMount := flag.String("persist-mount", "/persist", "LUKS mount; mounted = unlocked")
 	journalctl := flag.String("journalctl", "journalctl", "journalctl binary")
 	logUnits := flag.String("log-units", "", "comma-separated systemd units the log view follows")
+	oui := flag.String("oui", "", "nmap-mac-prefixes file for vendor names (empty = none)")
+	reporters := flag.String("bubble-reporters", "", "comma-separated tailnet IPs allowed to report bubble devices")
 	flag.Parse()
 
 	nm, err := NewNM(*iface, *persistDir, *persistMount)
@@ -333,6 +361,16 @@ func main() {
 		log.Fatalf("system bus: %v", err)
 	}
 	go nm.watchBypass()
+	nm.bubble = &Bubble{OUI: *oui}
+	for _, ip := range strings.Split(*reporters, ",") {
+		if ip == "" {
+			continue
+		}
+		if net.ParseIP(ip) == nil {
+			log.Fatalf("invalid bubble reporter IP %q", ip)
+		}
+		nm.bubble.Reporters = append(nm.bubble.Reporters, ip)
+	}
 	if nm.logs, err = NewLogs(*journalctl, strings.Split(*logUnits, ","), 3); err != nil {
 		log.Fatalf("log units: %v", err)
 	}

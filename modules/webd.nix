@@ -7,6 +7,8 @@
 let
   webd = pkgs.callPackage ../pkgs/panhandler-webd { };
   port = 8080;
+  # Only the prefix table reaches the Pi, not nmap.
+  oui = pkgs.runCommand "nmap-mac-prefixes" { } "cp ${pkgs.nmap}/share/nmap/nmap-mac-prefixes $out";
   flags = lib.cli.toCommandLineShellGNU { } {
     listen-devs = "eth0,tailscale0";
     inherit port;
@@ -14,6 +16,8 @@ let
     direct-peers = lib.concatStringsSep "," (lib.attrValues config.panhandler.managementPeers);
     journalctl = "${config.systemd.package}/bin/journalctl";
     log-units = lib.concatStringsSep "," config.panhandler.webd.logUnits;
+    inherit oui;
+    bubble-reporters = lib.concatStringsSep "," config.panhandler.webd.bubbleReporters;
   };
 in
 {
@@ -26,6 +30,11 @@ in
     type = lib.types.listOf lib.types.str;
     default = [ ];
     description = "Exact additional hostnames permitted by the management HTTP server.";
+  };
+  options.panhandler.webd.bubbleReporters = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = "Tailnet IPs allowed to report bubble devices (POST /api/bubble); empty = no device list.";
   };
   options.panhandler.webd.logUnits = lib.mkOption {
     type = lib.types.listOf lib.types.str;

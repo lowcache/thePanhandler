@@ -44,6 +44,11 @@
               phone = "100.65.161.34";
               phone-v6 = "fd7a:115c:a1e0::531:a123";
             };
+            # volnix runs the travel bubble and reports its clients.
+            panhandler.webd.bubbleReporters = [
+              "100.66.249.117"
+              "fd7a:115c:a1e0::9b3b:f976"
+            ];
           }
           nixos-hardware.nixosModules.raspberry-pi-3
           "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"

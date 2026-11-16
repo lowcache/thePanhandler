@@ -204,6 +204,25 @@ export function formatSecurity(security: WifiSecurity): string {
   }
 }
 
+// Bubble devices (volnix's Wi-Fi AP), as volnix last reported them to the Pi.
+export interface Device {
+  mac: string;
+  ip: string;
+  hostname: string;
+  vendor: string; // 'randomized' for locally administered MACs
+  leaseExpires: string;
+  online: boolean;
+}
+
+export interface DeviceReport {
+  reportedAt: string; // '' = volnix has not reported since the Pi's web UI started
+  devices: Device[];
+}
+
+export function fetchDevices(): Promise<DeviceReport> {
+  return request<DeviceReport>('/api/devices');
+}
+
 // One journal record from GET /api/logs (SSE, event "log").
 export interface LogEntry {
   unit: string;

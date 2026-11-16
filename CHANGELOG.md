@@ -8,8 +8,9 @@ Notable changes, newest first. Dates are commit dates.
 - Live logs over SSE for webd, NetworkManager, dnsmasq, blocky and the uplink probe. Off until
   started; at most 3 viewers; only the cable or a management peer over Tailscale may read them.
   Header tabs switch between Wi-Fi and Logs.
-- No device list: the only cable client is volnix, and bubble clients sit behind its NAT. Parked
-  until devices can be enumerated where they actually join.
+- Devices tab: the travel bubble's clients as volnix reports them (its DHCP leases and live
+  neighbors, every 30 s, over the tailnet only; the cable is refused because bubble clients look
+  like volnix there). Held in RAM; vendor from nmap's MAC-prefix table; stale reports are flagged.
 
 ### 2026-11-15: uplink truth (burned in across several hotels since 2026-11-02)
 - Portal detection no longer trusts NetworkManager: `ph-uplink-probe` fetches plain-HTTP pages
