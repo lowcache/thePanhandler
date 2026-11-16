@@ -55,7 +55,7 @@ func (b *Bubble) Report() DeviceReport {
 // canReport: WireGuard proves the source over tailscale0; the cable can't (bubble devices
 // arrive there masqueraded as volnix).
 func (b *Bubble) canReport(r *http.Request) bool {
-	if b == nil || r.Context().Value(ingressKey{}) != "tailscale0" {
+	if b == nil || r.Context().Value(ingressKey{}) != tailnetDev {
 		return false
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)

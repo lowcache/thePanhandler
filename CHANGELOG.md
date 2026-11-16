@@ -9,6 +9,11 @@ Notable changes, newest first. Dates are commit dates.
   modules it builds on); the author's host values live in `hosts/panhandler.nix`. The login user is
   an option (`panhandler.adminUser`/`adminKeys`), not a flake specialArg. The Pi's system and every
   check derivation are byte-identical to before the split.
+- The web UI takes its interfaces from `panhandler.lanInterface` and
+  `services.tailscale.interfaceName` instead of hardcoding `eth0`/`tailscale0`, and the unlock
+  spine's cable defaults to the same option. New VM check `webui` runs the service as deployed
+  (sandbox, journal access, per-device listeners): log stream and its gate, the bubble-report gate,
+  the device list. It fails as it should when the journal group is removed.
 
 ### 2026-11-16: no DNS query log
 - blocky no longer journals every client lookup (its default console query log). The journal is

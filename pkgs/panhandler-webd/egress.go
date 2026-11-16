@@ -19,6 +19,10 @@ type Egress struct {
 }
 
 type ingressKey struct{}
+
+// The trusted interfaces as named on this host (flags --cable-dev, --tailnet-dev).
+var cableDev, tailnetDev = "eth0", "tailscale0"
+
 type ingressConn struct {
 	net.Conn
 	device string
@@ -44,12 +48,12 @@ func ingressContext(ctx context.Context, c net.Conn) context.Context {
 }
 
 func (n *NM) canUseDirect(r *http.Request) bool {
-	return r.Context().Value(ingressKey{}) == "tailscale0" && n.isManagementPeer(r)
+	return r.Context().Value(ingressKey{}) == tailnetDev && n.isManagementPeer(r)
 }
 
 // canReadLogs: the cable, or a management peer over Tailscale. Logs carry SSIDs and hotel DHCP details.
 func (n *NM) canReadLogs(r *http.Request) bool {
-	return r.Context().Value(ingressKey{}) == "eth0" || n.canUseDirect(r)
+	return r.Context().Value(ingressKey{}) == cableDev || n.canUseDirect(r)
 }
 
 func (n *NM) isManagementPeer(r *http.Request) bool {

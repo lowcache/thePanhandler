@@ -67,7 +67,10 @@ let
   };
 in
 {
-  imports = [ ./admin.nix ];
+  imports = [
+    ./admin.nix
+    ./interfaces.nix
+  ];
 
   options.panhandler.spine = {
     persistUuid = mkOption {
@@ -91,7 +94,7 @@ in
     };
     cableInterface = mkOption {
       type = types.str;
-      default = "eth0";
+      default = config.panhandler.lanInterface;
     };
     tailnetInterface = mkOption {
       type = types.str;

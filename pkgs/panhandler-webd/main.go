@@ -343,7 +343,8 @@ func serveOn(srv *http.Server, dev, port string) {
 }
 
 func main() {
-	devs := flag.String("listen-devs", "eth0,tailscale0", "comma-separated trusted interfaces to serve on")
+	flag.StringVar(&cableDev, "cable-dev", cableDev, "the cable interface (logs and device list allowed)")
+	flag.StringVar(&tailnetDev, "tailnet-dev", tailnetDev, "the Tailscale interface (management peers checked)")
 	port := flag.String("port", "8080", "TCP port")
 	allowedNames := flag.String("allowed-hosts", "", "comma-separated exact additional management hostnames")
 	directPeers := flag.String("direct-peers", "", "comma-separated exact Tailscale IPs allowed to choose Direct mode")
@@ -389,8 +390,8 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	for _, d := range strings.Split(*devs, ",") {
-		if d = strings.TrimSpace(d); d == *iface {
+	for _, d := range []string{cableDev, tailnetDev} {
+		if d == *iface {
 			log.Fatalf("refusing to serve on the uplink %s", d)
 		} else if d != "" {
 			go serveOn(srv, d, *port)

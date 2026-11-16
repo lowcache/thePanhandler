@@ -5,12 +5,15 @@
   ...
 }:
 let
+  cable = config.panhandler.lanInterface;
+  tailnet = config.services.tailscale.interfaceName;
   webd = pkgs.callPackage ../pkgs/panhandler-webd { };
   port = 8080;
   # Only the prefix table reaches the Pi, not nmap.
   oui = pkgs.runCommand "nmap-mac-prefixes" { } "cp ${pkgs.nmap}/share/nmap/nmap-mac-prefixes $out";
   flags = lib.cli.toCommandLineShellGNU { } {
-    listen-devs = "eth0,tailscale0";
+    cable-dev = cable;
+    tailnet-dev = tailnet;
     inherit port;
     allowed-hosts = lib.concatStringsSep "," config.panhandler.webd.allowedHostnames;
     direct-peers = lib.concatStringsSep "," (lib.attrValues config.panhandler.managementPeers);
@@ -21,6 +24,7 @@ let
   };
 in
 {
+  imports = [ ./interfaces.nix ];
   options.panhandler.managementPeers = lib.mkOption {
     type = lib.types.attrsOf lib.types.str;
     default = { };
@@ -114,8 +118,8 @@ in
     };
 
     networking.firewall.interfaces = {
-      eth0.allowedTCPPorts = [ port ];
-      tailscale0.allowedTCPPorts = [ port ];
+      ${cable}.allowedTCPPorts = [ port ];
+      ${tailnet}.allowedTCPPorts = [ port ];
     };
   };
 }

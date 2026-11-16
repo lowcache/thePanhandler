@@ -142,6 +142,12 @@
         clockModule = ./modules/clock.nix;
       };
 
+      # The service as deployed; `webd` below is the Go build and unit tests.
+      checks.x86_64-linux.webui = import ./tests/webd.nix {
+        pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        webdModule = ./modules/webd.nix;
+      };
+
       checks.x86_64-linux.webd =
         nixpkgs.legacyPackages.x86_64-linux.callPackage ./pkgs/panhandler-webd
           { };
