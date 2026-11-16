@@ -19,6 +19,9 @@ in
     ];
     # brcmfmac flaps under power save (4-way handshake timeout, reason=15) → 2 (off).
     wifi.powersave = false;
+    # NixOS defaults to WARN, which left no NM history in the journal (Hilton, 2026-11-02). The journal
+    # is RAM-only and the web UI log view is gated; NM never logs passphrases at INFO.
+    logLevel = "INFO";
     # Per-profile random MAC (stable-id below), never the b8:27:eb Raspberry Pi OUI; stable via the key
     # below. Per-SSID linked every "Hilton Honors" worldwide; forgetting a network now rotates its MAC.
     wifi.macAddress = "stable";

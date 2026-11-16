@@ -15,6 +15,10 @@ Notable changes, newest first. Dates are commit dates.
   (sandbox, journal access, per-device listeners): log stream and its gate, the bubble-report gate,
   the device list. It fails as it should when the journal group is removed.
 
+### 2026-11-16: NetworkManager logs at INFO
+- NetworkManager logged at the NixOS default, WARN, so joins, DHCP and connectivity changes never
+  reached the journal or the web UI log view. Now INFO (RAM-only journal, gated log view).
+
 ### 2026-11-16: no DNS query log
 - blocky no longer journals every client lookup (its default console query log). The journal is
   RAM-only, but it still held a running browsing history of every device behind the Pi.
