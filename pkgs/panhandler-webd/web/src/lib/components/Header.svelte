@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export type View = 'wifi' | 'devices' | 'logs';
+  export type View = 'wifi' | 'logs';
 </script>
 
 <script lang="ts">
@@ -7,7 +7,6 @@
 
   const tabs: { id: View; label: string }[] = [
     { id: 'wifi', label: 'Wi-Fi' },
-    { id: 'devices', label: 'Devices' },
     { id: 'logs', label: 'Logs' },
   ];
 </script>

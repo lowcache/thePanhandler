@@ -5,10 +5,11 @@ Notable changes, newest first. Dates are commit dates.
 ## Unreleased
 
 ### 2026-11-15: web UI phase B
-- Devices on the cable: dnsmasq leases merged with the neighbor table, vendor from the MAC prefix
-  (nmap's table; randomized MACs say so), online state and lease time.
 - Live logs over SSE for webd, NetworkManager, dnsmasq, blocky and the uplink probe. Off until
   started; at most 3 viewers; only the cable or a management peer over Tailscale may read them.
+  Header tabs switch between Wi-Fi and Logs.
+- No device list: the only cable client is volnix, and bubble clients sit behind its NAT. Parked
+  until devices can be enumerated where they actually join.
 
 ### 2026-11-15: uplink truth (burned in across several hotels since 2026-11-02)
 - Portal detection no longer trusts NetworkManager: `ph-uplink-probe` fetches plain-HTTP pages

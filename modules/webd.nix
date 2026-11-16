@@ -7,16 +7,11 @@
 let
   webd = pkgs.callPackage ../pkgs/panhandler-webd { };
   port = 8080;
-  # Only the prefix table reaches the Pi, not nmap.
-  oui = pkgs.runCommand "nmap-mac-prefixes" { } "cp ${pkgs.nmap}/share/nmap/nmap-mac-prefixes $out";
   flags = lib.cli.toCommandLineShellGNU { } {
     listen-devs = "eth0,tailscale0";
     inherit port;
     allowed-hosts = lib.concatStringsSep "," config.panhandler.webd.allowedHostnames;
     direct-peers = lib.concatStringsSep "," (lib.attrValues config.panhandler.managementPeers);
-    leases = "/var/lib/dnsmasq/dnsmasq.leases";
-    lan = "eth0";
-    inherit oui;
     journalctl = "${config.systemd.package}/bin/journalctl";
     log-units = lib.concatStringsSep "," config.panhandler.webd.logUnits;
   };

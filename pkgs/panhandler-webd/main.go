@@ -237,18 +237,6 @@ func routes(nm *NM, allowedNames ...string) http.Handler {
 		log.Printf("portal bypass enable=%v", req.Enable)
 		writeJSON(w, 200, nm.Bypass())
 	})
-	mux.HandleFunc("GET /api/devices", func(w http.ResponseWriter, r *http.Request) {
-		if nm == nil || nm.inv == nil {
-			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "device inventory unavailable"})
-			return
-		}
-		devs, err := nm.inv.Devices()
-		if err != nil {
-			writeErr(w, err)
-			return
-		}
-		writeJSON(w, 200, devs)
-	})
 	mux.HandleFunc("GET /api/logs", func(w http.ResponseWriter, r *http.Request) {
 		if !nm.canReadLogs(r) {
 			http.Error(w, "logs require the cable or an approved management device over Tailscale", http.StatusForbidden)
@@ -336,9 +324,6 @@ func main() {
 	iface := flag.String("wifi", "wlan0", "NetworkManager Wi-Fi interface")
 	persistDir := flag.String("persist-dir", "/persist/nm/system-connections", "NM keyfile dir")
 	persistMount := flag.String("persist-mount", "/persist", "LUKS mount; mounted = unlocked")
-	leases := flag.String("leases", "/var/lib/dnsmasq/dnsmasq.leases", "dnsmasq lease file")
-	lanDev := flag.String("lan", "eth0", "downstream interface for the device list")
-	oui := flag.String("oui", "", "nmap-mac-prefixes file for vendor names (empty = none)")
 	journalctl := flag.String("journalctl", "journalctl", "journalctl binary")
 	logUnits := flag.String("log-units", "", "comma-separated systemd units the log view follows")
 	flag.Parse()
@@ -348,7 +333,6 @@ func main() {
 		log.Fatalf("system bus: %v", err)
 	}
 	go nm.watchBypass()
-	nm.inv = &Inventory{Leases: *leases, ARP: "/proc/net/arp", OUI: *oui, Dev: *lanDev}
 	if nm.logs, err = NewLogs(*journalctl, strings.Split(*logUnits, ","), 3); err != nil {
 		log.Fatalf("log units: %v", err)
 	}
