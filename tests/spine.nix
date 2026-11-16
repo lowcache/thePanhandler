@@ -7,10 +7,9 @@ let
 in
 pkgs.testers.runNixOSTest {
   name = "panhandler-spine";
-  node.specialArgs.username = "lowcache";
-
   nodes.pi = _: {
     imports = [ unlockModule ];
+    panhandler.adminUser = "lowcache";
     virtualisation.vlans = [
       1
       2

@@ -4,6 +4,12 @@ Notable changes, newest first. Dates are commit dates.
 
 ## Unreleased
 
+### 2026-11-16: hoboSEC split
+- The generic router is `nixosModules.hobosec` (`modules/` plus the Pi 3, SD-image and sops-nix
+  modules it builds on); the author's host values live in `hosts/panhandler.nix`. The login user is
+  an option (`panhandler.adminUser`/`adminKeys`), not a flake specialArg. The Pi's system and every
+  check derivation are byte-identical to before the split.
+
 ### 2026-11-16: no DNS query log
 - blocky no longer journals every client lookup (its default console query log). The journal is
   RAM-only, but it still held a running browsing history of every device behind the Pi.

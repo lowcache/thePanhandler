@@ -2,7 +2,6 @@
   config,
   lib,
   pkgs,
-  username,
   ...
 }:
 {
@@ -17,23 +16,7 @@
   # mainline kernel wants its own DTBs via extlinux FDTDIR, as stock sd-image-aarch64.
   boot.loader.generic-extlinux-compatible.useGenerationDeviceTree = true;
 
-  networking.hostName = "panhandler";
-
-  # Verdict changes (open / portal / dead) to the same phone listener; no SSID in the notice.
-  panhandler.probe.noticeUrl = "http://${config.panhandler.managementPeers.phone}:8463/uplink";
-
-  panhandler.spine = {
-    # Phone boot-log listener (phone/listener.py) on the phone's tailnet address.
-    checkinUrl = "http://${config.panhandler.managementPeers.phone}:8463/checkin";
-    # Fixed so ph-provision can luksFormat --uuid it; not secret.
-    persistUuid = "f1dd299a-8515-44ed-9377-8ac71096433b";
-    unlockKeys = lib.optionals (builtins.pathExists ../keys/unlock-keys.pub) (
-      lib.filter (l: l != "") (lib.splitString "\n" (builtins.readFile ../keys/unlock-keys.pub))
-    );
-  };
   time.timeZone = lib.mkDefault "UTC";
-  # New host: current release. Never bump after first deploy.
-  system.stateVersion = "26.11";
 
   nix.settings.experimental-features = [
     "nix-command"
@@ -46,12 +29,10 @@
   # --- Users: keys-only, no mutable state, no throwaway password on this image ---
   users.mutableUsers = false;
   users.users.root.hashedPassword = "!";
-  users.users.${username} = {
+  users.users.${config.panhandler.adminUser} = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBJZUOXEhGUUPfHPoXg6imru3+6lPmnVQS437J38QVCW lowcache"
-    ];
+    openssh.authorizedKeys.keys = config.panhandler.adminKeys;
   };
   # Headless + keys-only: wheel sudo needs no password (the box holds nothing).
   security.sudo.wheelNeedsPassword = false;

@@ -2,7 +2,6 @@
   config,
   lib,
   pkgs,
-  username,
   ...
 }:
 let
@@ -68,6 +67,8 @@ let
   };
 in
 {
+  imports = [ ./admin.nix ];
+
   options.panhandler.spine = {
     persistUuid = mkOption {
       type = types.str;
@@ -139,7 +140,7 @@ in
   config = {
     environment.systemPackages = [ unlockd ];
 
-    users.users.${username}.openssh.authorizedKeys.keys = map (
+    users.users.${config.panhandler.adminUser}.openssh.authorizedKeys.keys = map (
       k: ''restrict,pty,command="${lib.getExe unlockd}" ${k}''
     ) cfg.unlockKeys;
 

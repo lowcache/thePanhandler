@@ -155,8 +155,10 @@ make provision-card IMAGE=$TMPDIR/ph-build/sd-image/sd-image/*.img.zst DEVICE=/d
 make up                                  # 4. cable, wait, unlock, uplink, laptop routes via Pi
 ```
 
-Adapt the hard-coded values to your setup first: `username` and `panhandler.managementPeers` in
-[`flake.nix`](flake.nix), the `PI_*` and `LAPTOP_ETH` addresses in the [`Makefile`](Makefile),
+Adapt the host to your setup first: everything personal (login user and key, management peers,
+tailnet names, persist UUID, phone URLs, sops file) is in [`hosts/panhandler.nix`](hosts/panhandler.nix);
+the generic router is [`modules/`](modules/), exported as `nixosModules.hobosec` for use from
+another flake. Also the `PI_*` and `LAPTOP_ETH` addresses in the [`Makefile`](Makefile),
 [`.sops.yaml`](.sops.yaml) recipients, and the tailnet policy in [`security/`](security/).
 On the phone, run [`phone/enroll.py`](phone/enroll.py) once, then run the listener under
 `termux-services` ([`phone/sv/`](phone/sv/)).

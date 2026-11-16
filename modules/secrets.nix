@@ -1,8 +1,6 @@
 { config, lib, ... }:
 {
   sops = {
-    defaultSopsFile = ../secrets/secrets.yaml;
-
     # Dedicated Panhandler age key, inside LUKS: secrets exist only after unlock.
     age.sshKeyPaths = [ ];
     age.keyFile = "/persist/sops-nix/key.txt";

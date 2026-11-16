@@ -20,53 +20,30 @@
       nixos-hardware,
       sops-nix,
       ...
-    }@inputs:
+    }:
     let
-      username = "lowcache";
       tailnetPolicy = (builtins.fromJSON (builtins.readFile ./security/tailscale-policy.json)) // {
         hosts = self.nixosConfigurations.panhandler.config.panhandler.managementPeers;
       };
     in
     {
-      nixosConfigurations.panhandler = nixpkgs.lib.nixosSystem {
-        specialArgs = { inherit inputs username; };
-        modules = [
-          # Reported by `nixos-version --configuration-revision`.
-          {
-            system.configurationRevision = self.rev or self.dirtyRev or "unknown";
-            panhandler.webd.allowedHostnames = [
-              "panhandler.taila5270e.ts.net"
-              "panhandler-locked.taila5270e.ts.net"
-            ];
-            panhandler.managementPeers = {
-              volnix = "100.66.249.117";
-              volnix-v6 = "fd7a:115c:a1e0::9b3b:f976";
-              phone = "100.65.161.34";
-              phone-v6 = "fd7a:115c:a1e0::531:a123";
-            };
-            # volnix runs the travel bubble and reports its clients.
-            panhandler.webd.bubbleReporters = [
-              "100.66.249.117"
-              "fd7a:115c:a1e0::9b3b:f976"
-            ];
-          }
+      # Generic hoboSEC router, with the board, image and secrets modules it builds on.
+      nixosModules.hobosec = {
+        imports = [
           nixos-hardware.nixosModules.raspberry-pi-3
           "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
           sops-nix.nixosModules.sops
-          ./modules/base.nix
-          ./modules/secrets.nix
-          ./modules/wifi.nix
-          ./modules/tailscale.nix
-          ./modules/storage.nix
-          ./modules/unlock.nix
-          ./modules/gateway.nix
-          ./modules/egress.nix
-          ./modules/webd.nix
-          ./modules/portal.nix
-          ./modules/probe.nix
-          ./modules/clock.nix
-          ./modules/hardening.nix
-          ./modules/machine-id.nix
+        ]
+        ++ (import ./modules).imports;
+      };
+      nixosModules.default = self.nixosModules.hobosec;
+
+      nixosConfigurations.panhandler = nixpkgs.lib.nixosSystem {
+        modules = [
+          # Reported by `nixos-version --configuration-revision`.
+          { system.configurationRevision = self.rev or self.dirtyRev or "unknown"; }
+          ./hosts/panhandler.nix
+          self.nixosModules.hobosec
         ];
       };
 
