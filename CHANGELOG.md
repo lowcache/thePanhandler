@@ -4,6 +4,10 @@ Notable changes, newest first. Dates are commit dates.
 
 ## Unreleased
 
+### 2026-11-16: no DNS query log
+- blocky no longer journals every client lookup (its default console query log). The journal is
+  RAM-only, but it still held a running browsing history of every device behind the Pi.
+
 ### 2026-11-15: web UI phase B
 - Live logs over SSE for webd, NetworkManager, dnsmasq, blocky and the uplink probe. Off until
   started; at most 3 viewers; only the cable or a management peer over Tailscale may read them.

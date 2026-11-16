@@ -117,6 +117,8 @@ in
       bootstrapDns = [ "9.9.9.9" ];
       # Most uplinks are IPv4-only; dual-stack dials pick Quad9's AAAA and fail "network unreachable".
       connectIPVersion = "v4";
+      # The default (console) journals every client lookup: a household browsing history on the box.
+      queryLog.type = "none";
       blocking = {
         denylists.ads = [
           "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
