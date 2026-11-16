@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 let
   # UI-added profiles: inside LUKS, so they exist only after unlock (hotel SSIDs are a location trail).
   persistProfiles = "/persist/nm/system-connections";
@@ -6,14 +6,16 @@ let
   nmKeyBase = "/base/ph/nm-secret_key";
 in
 {
+  imports = [ ./interfaces.nix ];
+
   # NetworkManager owns wlan0 at runtime (scan/join/forget from panhandler-webd, no rebuilds).
   # The module keeps wpa_supplicant as its D-Bus-controlled backend and sets useDHCP = false.
   networking.networkmanager = {
     enable = true;
-    # eth0 = static downlink (gateway.nix), tailscale0 = mesh: never NM's.
+    # The cable (static, gateway.nix) and the mesh are never NM's.
     unmanaged = [
-      "interface-name:eth0"
-      "interface-name:tailscale0"
+      "interface-name:${config.panhandler.lanInterface}"
+      "interface-name:${config.services.tailscale.interfaceName}"
     ];
     # brcmfmac flaps under power save (4-way handshake timeout, reason=15) → 2 (off).
     wifi.powersave = false;

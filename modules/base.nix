@@ -5,6 +5,8 @@
   ...
 }:
 {
+  imports = [ ./interfaces.nix ];
+
   nixpkgs.hostPlatform = "aarch64-linux";
   # Mainline over nixos-hardware's mkDefault vendor kernel: mainline is in
   # cache.nixos.org, linux-rpi compiles for hours under binfmt on every bump.
@@ -54,8 +56,8 @@
   networking.usePredictableInterfaceNames = false;
   networking.firewall = {
     enable = true;
-    interfaces."tailscale0".allowedTCPPorts = [ 22 ];
-    interfaces."eth0".allowedTCPPorts = [ 22 ];
+    interfaces.${config.services.tailscale.interfaceName}.allowedTCPPorts = [ 22 ];
+    interfaces.${config.panhandler.lanInterface}.allowedTCPPorts = [ 22 ];
   };
 
   # Keep the closure lean for a 1 GB board.
